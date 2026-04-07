@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -12,7 +13,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AssemblyStatus, useApp } from "@/context/AppContext";
@@ -110,13 +110,17 @@ export default function NewAssemblyScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <KeyboardAwareScrollView
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
+      <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.form,
           { paddingBottom: bottomPad + 32 },
         ]}
-        bottomOffset={80}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -290,7 +294,8 @@ export default function NewAssemblyScreen() {
             {loading ? "Kaydediliyor..." : "Kaydı Oluştur"}
           </Text>
         </Pressable>
-      </KeyboardAwareScrollView>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
