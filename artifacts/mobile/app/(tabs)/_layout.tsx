@@ -23,6 +23,10 @@ function NativeTabLayout({ showAdmin }: { showAdmin: boolean }) {
           <Label>Panel</Label>
         </NativeTabs.Trigger>
       )}
+      <NativeTabs.Trigger name="stock">
+        <Icon sf={{ default: "shippingbox", selected: "shippingbox.fill" }} />
+        <Label>Stok</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profil</Label>
@@ -54,18 +58,9 @@ function ClassicTabLayout({ showAdmin }: { showAdmin: boolean }) {
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
+            <BlurView intensity={100} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
-              ]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
           ) : null,
       }}
     >
@@ -74,43 +69,35 @@ function ClassicTabLayout({ showAdmin }: { showAdmin: boolean }) {
         options={{
           title: "Kayıtlar",
           tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="list.bullet" tintColor={color} size={22} />
-            ) : (
-              <Feather name="list" size={22} color={color} />
-            ),
+            isIOS ? <SymbolView name="list.bullet" tintColor={color} size={22} /> : <Feather name="list" size={22} color={color} />,
         }}
       />
-      {showAdmin && (
+      {showAdmin ? (
         <Tabs.Screen
           name="admin"
           options={{
             title: "Panel",
             tabBarIcon: ({ color }) =>
-              isIOS ? (
-                <SymbolView name="chart.bar" tintColor={color} size={22} />
-              ) : (
-                <Feather name="bar-chart-2" size={22} color={color} />
-              ),
+              isIOS ? <SymbolView name="chart.bar" tintColor={color} size={22} /> : <Feather name="bar-chart-2" size={22} color={color} />,
           }}
         />
+      ) : (
+        <Tabs.Screen name="admin" options={{ href: null }} />
       )}
-      {!showAdmin && (
-        <Tabs.Screen
-          name="admin"
-          options={{ href: null }}
-        />
-      )}
+      <Tabs.Screen
+        name="stock"
+        options={{
+          title: "Stok",
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="shippingbox" tintColor={color} size={22} /> : <Feather name="package" size={22} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profil",
           tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={22} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
+            isIOS ? <SymbolView name="person" tintColor={color} size={22} /> : <Feather name="user" size={22} color={color} />,
         }}
       />
     </Tabs>
@@ -120,14 +107,10 @@ function ClassicTabLayout({ showAdmin }: { showAdmin: boolean }) {
 export default function TabLayout() {
   const { role } = useApp();
 
-  if (!role) {
-    return <Redirect href="/login" />;
-  }
+  if (!role) return <Redirect href="/login" />;
 
   const showAdmin = role === "admin";
 
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout showAdmin={showAdmin} />;
-  }
+  if (isLiquidGlassAvailable()) return <NativeTabLayout showAdmin={showAdmin} />;
   return <ClassicTabLayout showAdmin={showAdmin} />;
 }

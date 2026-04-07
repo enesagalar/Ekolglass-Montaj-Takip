@@ -4,12 +4,13 @@ import { StyleSheet, Text, View } from "react-native";
 import { AssemblyStatus } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
-const STATUS_LABELS: Record<AssemblyStatus, string> = {
-  pending: "Bekliyor",
-  in_progress: "Devam Ediyor",
-  qc_check: "KK Kontrolü",
+export const STATUS_LABELS: Record<AssemblyStatus, string> = {
+  cutting: "Kesime Başlandı",
+  installation: "Montaja Başlandı",
+  installation_done: "Montaj Tamamlandı",
+  water_test: "Su Testinde",
+  water_test_failed: "Test Başarısız",
   completed: "Tamamlandı",
-  delivered: "Teslim Edildi",
 };
 
 interface StatusBadgeProps {
@@ -22,11 +23,12 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
 
   const getStatusColor = (): string => {
     switch (status) {
-      case "pending": return colors.statusPending;
-      case "in_progress": return colors.statusInProgress;
-      case "qc_check": return colors.statusQC;
-      case "completed": return colors.statusCompleted;
-      case "delivered": return colors.statusDelivered;
+      case "cutting": return colors.warning;
+      case "installation": return colors.primary;
+      case "installation_done": return colors.accent;
+      case "water_test": return "#8b5cf6";
+      case "water_test_failed": return colors.destructive;
+      case "completed": return colors.success;
     }
   };
 
@@ -46,12 +48,7 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
       ]}
     >
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text
-        style={[
-          styles.label,
-          { color, fontSize: isSmall ? 11 : 12 },
-        ]}
-      >
+      <Text style={[styles.label, { color, fontSize: isSmall ? 11 : 12 }]}>
         {STATUS_LABELS[status]}
       </Text>
     </View>
@@ -67,13 +64,6 @@ const styles = StyleSheet.create({
     gap: 5,
     alignSelf: "flex-start",
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  label: {
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  label: { fontFamily: "Inter_600SemiBold", letterSpacing: 0.2 },
 });

@@ -10,16 +10,38 @@ import React, {
 export type UserRole = "field" | "admin" | "customer" | null;
 
 export type AssemblyStatus =
-  | "pending"
-  | "in_progress"
-  | "qc_check"
-  | "completed"
-  | "delivered";
+  | "cutting"
+  | "installation"
+  | "installation_done"
+  | "water_test"
+  | "water_test_failed"
+  | "completed";
+
+export interface GlassProduct {
+  id: string;
+  name: string;
+  code: string;
+  stock: number;
+}
+
+export const GLASS_PRODUCTS: GlassProduct[] = [
+  { id: "g1", name: "FIAT DUCATO SAĞ 1. YAN CAM", code: "DCT-IS R1", stock: 0 },
+  { id: "g2", name: "FIAT DUCATO SAĞ 2. YAN CAM", code: "DCT-IS R2", stock: 0 },
+  { id: "g3", name: "FIAT DUCATO SAĞ 3. YAN CAM", code: "DCT-IS R3", stock: 0 },
+  { id: "g4", name: "FIAT DUCATO SOL 1. YAN CAM", code: "DCT-IS L1", stock: 0 },
+  { id: "g5", name: "FIAT DUCATO SOL 2. YAN CAM", code: "DCT-IS L2", stock: 0 },
+  { id: "g6", name: "FIAT DUCATO SOL 3. YAN CAM", code: "DCT-IS L3", stock: 0 },
+  { id: "g7", name: "FIAT DUCATO SAĞ ARKA KAPAK", code: "DCT-IS B", stock: 0 },
+  { id: "g8", name: "FIAT DUCATO SOL ARKA KAPAK", code: "DCT-IS B", stock: 0 },
+];
+
+export const CUSTOMER_NAME = "ISRI";
+export const VEHICLE_MODEL = "Fiat Ducato";
 
 export interface PhotoRecord {
   id: string;
   uri: string;
-  type: "before" | "after" | "defect" | "other";
+  type: "vin" | "before" | "after" | "defect" | "other";
   timestamp: string;
   note?: string;
 }
@@ -35,69 +57,61 @@ export interface DefectRecord {
 export interface AssemblyRecord {
   id: string;
   vin: string;
-  vehicleModel: string;
-  vehicleColor: string;
-  customerName: string;
-  customerPhone: string;
-  status: AssemblyStatus;
+  vinPhotoUri?: string;
+  glassProductId: string;
   assignedTo: string;
+  status: AssemblyStatus;
+  waterTestResult?: "passed" | "failed";
   photos: PhotoRecord[];
   defects: DefectRecord[];
   notes: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
-  deliveredAt?: string;
-  glassType: string;
-  glassPartNumber: string;
 }
 
 interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   assemblies: AssemblyRecord[];
-  addAssembly: (assembly: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => AssemblyRecord;
+  glassStock: GlassProduct[];
+  addAssembly: (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => AssemblyRecord;
   updateAssembly: (id: string, updates: Partial<AssemblyRecord>) => void;
   deleteAssembly: (id: string) => void;
   getAssembly: (id: string) => AssemblyRecord | undefined;
   addPhoto: (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => void;
   addDefect: (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => void;
   updateDefect: (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => void;
+  updateStock: (productId: string, delta: number) => void;
   staffMembers: string[];
+  getGlassProduct: (id: string) => GlassProduct | undefined;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = "@cam_montaj_assemblies";
+const STORAGE_KEY = "@cam_montaj_assemblies_v2";
 const ROLE_KEY = "@cam_montaj_role";
+const STOCK_KEY = "@cam_montaj_stock_v2";
 
 const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
     id: "asm-001",
-    vin: "WBA3A5C50DF597152",
-    vehicleModel: "BMW 3 Serisi",
-    vehicleColor: "Siyah",
-    customerName: "Ahmet Yılmaz",
-    customerPhone: "+90 555 123 4567",
-    status: "in_progress",
+    vin: "VF3YHWMFB13459001",
+    glassProductId: "g1",
     assignedTo: "Mehmet Demir",
+    status: "installation",
     photos: [],
     defects: [],
-    notes: "Ön cam değişimi. Müşteri öğleden sonra araç teslim istiyor.",
+    notes: "Sağ 1. yan cam değişimi.",
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    glassType: "Ön Cam",
-    glassPartNumber: "BMW-3F-2021-OEM",
   },
   {
     id: "asm-002",
-    vin: "JTDBL40E679075523",
-    vehicleModel: "Toyota Corolla",
-    vehicleColor: "Beyaz",
-    customerName: "Fatma Kaya",
-    customerPhone: "+90 532 987 6543",
-    status: "qc_check",
+    vin: "VF3YHWMFB13459002",
+    glassProductId: "g4",
     assignedTo: "Ali Çelik",
+    status: "water_test",
     photos: [],
     defects: [
       {
@@ -108,72 +122,66 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
         timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
       },
     ],
-    notes: "Arka sağ cam. Standart montaj.",
+    notes: "Sol 1. yan cam.",
     createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    glassType: "Arka Sağ Yan Cam",
-    glassPartNumber: "TOY-COR-2019-RR",
   },
   {
     id: "asm-003",
-    vin: "1HGBH41JXMN109186",
-    vehicleModel: "Honda Civic",
-    vehicleColor: "Gri",
-    customerName: "Kemal Arslan",
-    customerPhone: "+90 542 765 4321",
+    vin: "VF3YHWMFB13459003",
+    glassProductId: "g7",
+    assignedTo: "Hasan Yıldız",
     status: "completed",
-    assignedTo: "Mehmet Demir",
     photos: [],
     defects: [],
     notes: "",
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
     completedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    glassType: "Ön Cam",
-    glassPartNumber: "HON-CIV-2022-OEM",
+    waterTestResult: "passed",
   },
   {
     id: "asm-004",
-    vin: "2HGFA165X6H534631",
-    vehicleModel: "Mercedes C Serisi",
-    vehicleColor: "Lacivert",
-    customerName: "Zeynep Şahin",
-    customerPhone: "+90 505 321 9876",
-    status: "pending",
+    vin: "VF3YHWMFB13459004",
+    glassProductId: "g2",
     assignedTo: "Ali Çelik",
+    status: "cutting",
     photos: [],
     defects: [],
-    notes: "Panoramik tavan camı. Dikkatli montaj gerekiyor.",
+    notes: "Sağ 2. yan cam.",
     createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    glassType: "Panoramik Tavan",
-    glassPartNumber: "MRC-C-2023-PANO",
   },
 ];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<UserRole>(null);
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
+  const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_PRODUCTS);
 
   const staffMembers = ["Mehmet Demir", "Ali Çelik", "Hasan Yıldız", "Murat Özkan"];
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [savedRole, savedAssemblies] = await Promise.all([
+        const [savedRole, savedAssemblies, savedStock] = await Promise.all([
           AsyncStorage.getItem(ROLE_KEY),
           AsyncStorage.getItem(STORAGE_KEY),
+          AsyncStorage.getItem(STOCK_KEY),
         ]);
-        if (savedRole) {
-          setRoleState(savedRole as UserRole);
-        }
-        if (savedAssemblies) {
-          setAssemblies(JSON.parse(savedAssemblies));
-        } else {
+        if (savedRole) setRoleState(savedRole as UserRole);
+        if (savedAssemblies) setAssemblies(JSON.parse(savedAssemblies));
+        else {
           setAssemblies(DEMO_ASSEMBLIES);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_ASSEMBLIES));
         }
-      } catch (e) {
+        if (savedStock) setGlassStock(JSON.parse(savedStock));
+        else {
+          const initial = GLASS_PRODUCTS.map((g) => ({ ...g, stock: 5 }));
+          setGlassStock(initial);
+          await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(initial));
+        }
+      } catch {
         setAssemblies(DEMO_ASSEMBLIES);
       }
     };
@@ -185,6 +193,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   }, []);
 
+  const saveStock = useCallback(async (updated: GlassProduct[]) => {
+    setGlassStock(updated);
+    await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(updated));
+  }, []);
+
   const setRole = useCallback(async (r: UserRole) => {
     setRoleState(r);
     if (r) await AsyncStorage.setItem(ROLE_KEY, r);
@@ -194,17 +207,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addAssembly = useCallback(
     (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => {
       const now = new Date().toISOString();
-      const newRecord: AssemblyRecord = {
-        ...data,
-        id: `asm-${Date.now()}`,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const newRecord: AssemblyRecord = { ...data, id: `asm-${Date.now()}`, createdAt: now, updatedAt: now };
       const updated = [newRecord, ...assemblies];
       saveAssemblies(updated);
+      const updatedStock = glassStock.map((g) =>
+        g.id === data.glassProductId ? { ...g, stock: Math.max(0, g.stock - 1) } : g
+      );
+      saveStock(updatedStock);
       return newRecord;
     },
-    [assemblies, saveAssemblies]
+    [assemblies, glassStock, saveAssemblies, saveStock]
   );
 
   const updateAssembly = useCallback(
@@ -232,15 +244,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addPhoto = useCallback(
     (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => {
-      const newPhoto: PhotoRecord = {
-        ...photo,
-        id: `photo-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-      };
+      const newPhoto: PhotoRecord = { ...photo, id: `photo-${Date.now()}`, timestamp: new Date().toISOString() };
       const updated = assemblies.map((a) =>
-        a.id === assemblyId
-          ? { ...a, photos: [...a.photos, newPhoto], updatedAt: new Date().toISOString() }
-          : a
+        a.id === assemblyId ? { ...a, photos: [...a.photos, newPhoto], updatedAt: new Date().toISOString() } : a
       );
       saveAssemblies(updated);
     },
@@ -249,15 +255,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addDefect = useCallback(
     (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => {
-      const newDefect: DefectRecord = {
-        ...defect,
-        id: `def-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-      };
+      const newDefect: DefectRecord = { ...defect, id: `def-${Date.now()}`, timestamp: new Date().toISOString() };
       const updated = assemblies.map((a) =>
-        a.id === assemblyId
-          ? { ...a, defects: [...a.defects, newDefect], updatedAt: new Date().toISOString() }
-          : a
+        a.id === assemblyId ? { ...a, defects: [...a.defects, newDefect], updatedAt: new Date().toISOString() } : a
       );
       saveAssemblies(updated);
     },
@@ -268,13 +268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => {
       const updated = assemblies.map((a) =>
         a.id === assemblyId
-          ? {
-              ...a,
-              defects: a.defects.map((d) =>
-                d.id === defectId ? { ...d, ...updates } : d
-              ),
-              updatedAt: new Date().toISOString(),
-            }
+          ? { ...a, defects: a.defects.map((d) => (d.id === defectId ? { ...d, ...updates } : d)), updatedAt: new Date().toISOString() }
           : a
       );
       saveAssemblies(updated);
@@ -282,20 +276,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [assemblies, saveAssemblies]
   );
 
+  const updateStock = useCallback(
+    (productId: string, delta: number) => {
+      const updated = glassStock.map((g) =>
+        g.id === productId ? { ...g, stock: Math.max(0, g.stock + delta) } : g
+      );
+      saveStock(updated);
+    },
+    [glassStock, saveStock]
+  );
+
+  const getGlassProduct = useCallback(
+    (id: string) => glassStock.find((g) => g.id === id),
+    [glassStock]
+  );
+
   return (
     <AppContext.Provider
       value={{
-        role,
-        setRole,
-        assemblies,
-        addAssembly,
-        updateAssembly,
-        deleteAssembly,
-        getAssembly,
-        addPhoto,
-        addDefect,
-        updateDefect,
-        staffMembers,
+        role, setRole, assemblies, glassStock,
+        addAssembly, updateAssembly, deleteAssembly, getAssembly,
+        addPhoto, addDefect, updateDefect, updateStock, staffMembers, getGlassProduct,
       }}
     >
       {children}
