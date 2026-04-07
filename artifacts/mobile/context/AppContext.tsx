@@ -24,15 +24,32 @@ export interface GlassProduct {
   stock: number;
 }
 
+export interface Consumable {
+  id: string;
+  name: string;
+  unit: string;
+  stock: number;
+  category: "chemical" | "tool" | "other";
+}
+
 export const GLASS_PRODUCTS: GlassProduct[] = [
-  { id: "g1", name: "FIAT DUCATO SAĞ 1. YAN CAM", code: "DCT-IS R1", stock: 0 },
-  { id: "g2", name: "FIAT DUCATO SAĞ 2. YAN CAM", code: "DCT-IS R2", stock: 0 },
-  { id: "g3", name: "FIAT DUCATO SAĞ 3. YAN CAM", code: "DCT-IS R3", stock: 0 },
-  { id: "g4", name: "FIAT DUCATO SOL 1. YAN CAM", code: "DCT-IS L1", stock: 0 },
-  { id: "g5", name: "FIAT DUCATO SOL 2. YAN CAM", code: "DCT-IS L2", stock: 0 },
-  { id: "g6", name: "FIAT DUCATO SOL 3. YAN CAM", code: "DCT-IS L3", stock: 0 },
-  { id: "g7", name: "FIAT DUCATO SAĞ ARKA KAPAK", code: "DCT-IS B", stock: 0 },
-  { id: "g8", name: "FIAT DUCATO SOL ARKA KAPAK", code: "DCT-IS B", stock: 0 },
+  { id: "g1", name: "SAĞ 1. YAN CAM", code: "DCT-IS R1", stock: 0 },
+  { id: "g2", name: "SAĞ 2. YAN CAM", code: "DCT-IS R2", stock: 0 },
+  { id: "g3", name: "SAĞ 3. YAN CAM", code: "DCT-IS R3", stock: 0 },
+  { id: "g4", name: "SOL 1. YAN CAM", code: "DCT-IS L1", stock: 0 },
+  { id: "g5", name: "SOL 2. YAN CAM", code: "DCT-IS L2", stock: 0 },
+  { id: "g6", name: "SOL 3. YAN CAM", code: "DCT-IS L3", stock: 0 },
+  { id: "g7", name: "SAĞ ARKA KAPAK", code: "DCT-IS B", stock: 0 },
+  { id: "g8", name: "SOL ARKA KAPAK", code: "DCT-IS B", stock: 0 },
+];
+
+export const DEFAULT_CONSUMABLES: Consumable[] = [
+  { id: "c1", name: "Silikon", unit: "adet", stock: 0, category: "chemical" },
+  { id: "c2", name: "Primer", unit: "adet", stock: 0, category: "chemical" },
+  { id: "c3", name: "Köpük", unit: "adet", stock: 0, category: "chemical" },
+  { id: "c4", name: "Bant", unit: "metre", stock: 0, category: "tool" },
+  { id: "c5", name: "Temizlik Bezi", unit: "adet", stock: 0, category: "tool" },
+  { id: "c6", name: "Koruyucu Örtü", unit: "adet", stock: 0, category: "other" },
 ];
 
 export const CUSTOMER_NAME = "ISRI";
@@ -58,7 +75,7 @@ export interface AssemblyRecord {
   id: string;
   vin: string;
   vinPhotoUri?: string;
-  glassProductId: string;
+  glassProductIds: string[];
   assignedTo: string;
   status: AssemblyStatus;
   waterTestResult?: "passed" | "failed";
@@ -75,6 +92,7 @@ interface AppContextType {
   setRole: (role: UserRole) => void;
   assemblies: AssemblyRecord[];
   glassStock: GlassProduct[];
+  consumables: Consumable[];
   addAssembly: (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => AssemblyRecord;
   updateAssembly: (id: string, updates: Partial<AssemblyRecord>) => void;
   deleteAssembly: (id: string) => void;
@@ -83,44 +101,40 @@ interface AppContextType {
   addDefect: (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => void;
   updateDefect: (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => void;
   updateStock: (productId: string, delta: number) => void;
+  updateConsumable: (consumableId: string, delta: number) => void;
   staffMembers: string[];
   getGlassProduct: (id: string) => GlassProduct | undefined;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = "@cam_montaj_assemblies_v2";
+const STORAGE_KEY = "@cam_montaj_assemblies_v3";
 const ROLE_KEY = "@cam_montaj_role";
-const STOCK_KEY = "@cam_montaj_stock_v2";
+const STOCK_KEY = "@cam_montaj_stock_v3";
+const CONSUMABLES_KEY = "@cam_montaj_consumables_v1";
 
 const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
     id: "asm-001",
     vin: "VF3YHWMFB13459001",
-    glassProductId: "g1",
+    glassProductIds: ["g1", "g2"],
     assignedTo: "Mehmet Demir",
     status: "installation",
     photos: [],
     defects: [],
-    notes: "Sağ 1. yan cam değişimi.",
+    notes: "Sağ taraf yan camlar değişimi.",
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
   },
   {
     id: "asm-002",
     vin: "VF3YHWMFB13459002",
-    glassProductId: "g4",
+    glassProductIds: ["g4"],
     assignedTo: "Ali Çelik",
     status: "water_test",
     photos: [],
     defects: [
-      {
-        id: "def-001",
-        description: "Sol köşede küçük çizik",
-        severity: "low",
-        resolved: true,
-        timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      },
+      { id: "def-001", description: "Sol köşede küçük çizik", severity: "low", resolved: true, timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
     ],
     notes: "Sol 1. yan cam.",
     createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
@@ -129,7 +143,7 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
     id: "asm-003",
     vin: "VF3YHWMFB13459003",
-    glassProductId: "g7",
+    glassProductIds: ["g7", "g8"],
     assignedTo: "Hasan Yıldız",
     status: "completed",
     photos: [],
@@ -143,7 +157,7 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
     id: "asm-004",
     vin: "VF3YHWMFB13459004",
-    glassProductId: "g2",
+    glassProductIds: ["g2"],
     assignedTo: "Ali Çelik",
     status: "cutting",
     photos: [],
@@ -152,22 +166,38 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
   },
+  {
+    id: "asm-005",
+    vin: "VF3YHWMFB13459005",
+    glassProductIds: ["g3", "g6"],
+    assignedTo: "Murat Özkan",
+    status: "water_test_failed",
+    photos: [],
+    defects: [
+      { id: "def-002", description: "Sızdırmazlık yetersiz", severity: "high", resolved: false, timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+    ],
+    notes: "Su testinden kaldı.",
+    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  },
 ];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<UserRole>(null);
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
   const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_PRODUCTS);
+  const [consumables, setConsumables] = useState<Consumable[]>(DEFAULT_CONSUMABLES);
 
   const staffMembers = ["Mehmet Demir", "Ali Çelik", "Hasan Yıldız", "Murat Özkan"];
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [savedRole, savedAssemblies, savedStock] = await Promise.all([
+        const [savedRole, savedAssemblies, savedStock, savedConsumables] = await Promise.all([
           AsyncStorage.getItem(ROLE_KEY),
           AsyncStorage.getItem(STORAGE_KEY),
           AsyncStorage.getItem(STOCK_KEY),
+          AsyncStorage.getItem(CONSUMABLES_KEY),
         ]);
         if (savedRole) setRoleState(savedRole as UserRole);
         if (savedAssemblies) setAssemblies(JSON.parse(savedAssemblies));
@@ -175,11 +205,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setAssemblies(DEMO_ASSEMBLIES);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_ASSEMBLIES));
         }
-        if (savedStock) setGlassStock(JSON.parse(savedStock));
-        else {
-          const initial = GLASS_PRODUCTS.map((g) => ({ ...g, stock: 5 }));
+        if (savedStock) {
+          setGlassStock(JSON.parse(savedStock));
+        } else {
+          const initial = GLASS_PRODUCTS.map((g) => ({ ...g, stock: 8 }));
           setGlassStock(initial);
           await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(initial));
+        }
+        if (savedConsumables) {
+          setConsumables(JSON.parse(savedConsumables));
+        } else {
+          const initial = DEFAULT_CONSUMABLES.map((c) => ({ ...c, stock: 20 }));
+          setConsumables(initial);
+          await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(initial));
         }
       } catch {
         setAssemblies(DEMO_ASSEMBLIES);
@@ -198,6 +236,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(updated));
   }, []);
 
+  const saveConsumables = useCallback(async (updated: Consumable[]) => {
+    setConsumables(updated);
+    await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(updated));
+  }, []);
+
   const setRole = useCallback(async (r: UserRole) => {
     setRoleState(r);
     if (r) await AsyncStorage.setItem(ROLE_KEY, r);
@@ -211,7 +254,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = [newRecord, ...assemblies];
       saveAssemblies(updated);
       const updatedStock = glassStock.map((g) =>
-        g.id === data.glassProductId ? { ...g, stock: Math.max(0, g.stock - 1) } : g
+        data.glassProductIds.includes(g.id) ? { ...g, stock: Math.max(0, g.stock - 1) } : g
       );
       saveStock(updatedStock);
       return newRecord;
@@ -230,10 +273,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const deleteAssembly = useCallback(
-    (id: string) => {
-      const updated = assemblies.filter((a) => a.id !== id);
-      saveAssemblies(updated);
-    },
+    (id: string) => saveAssemblies(assemblies.filter((a) => a.id !== id)),
     [assemblies, saveAssemblies]
   );
 
@@ -286,6 +326,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [glassStock, saveStock]
   );
 
+  const updateConsumable = useCallback(
+    (consumableId: string, delta: number) => {
+      const updated = consumables.map((c) =>
+        c.id === consumableId ? { ...c, stock: Math.max(0, c.stock + delta) } : c
+      );
+      saveConsumables(updated);
+    },
+    [consumables, saveConsumables]
+  );
+
   const getGlassProduct = useCallback(
     (id: string) => glassStock.find((g) => g.id === id),
     [glassStock]
@@ -294,9 +344,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        role, setRole, assemblies, glassStock,
+        role, setRole, assemblies, glassStock, consumables,
         addAssembly, updateAssembly, deleteAssembly, getAssembly,
-        addPhoto, addDefect, updateDefect, updateStock, staffMembers, getGlassProduct,
+        addPhoto, addDefect, updateDefect, updateStock, updateConsumable,
+        staffMembers, getGlassProduct,
       }}
     >
       {children}

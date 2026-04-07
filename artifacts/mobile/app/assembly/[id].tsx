@@ -90,7 +90,7 @@ export default function AssemblyDetailScreen() {
   const canEdit = role === "field" || role === "admin";
   const isAdmin = role === "admin";
   const currentStatusIdx = STATUS_FLOW.indexOf(assembly.status === "water_test_failed" ? "water_test" : assembly.status);
-  const glassProduct = getGlassProduct(assembly.glassProductId);
+  const glassProducts = (assembly.glassProductIds ?? []).map((id) => getGlassProduct(id)).filter(Boolean) as ReturnType<typeof getGlassProduct>[];
   const openDefectCount = assembly.defects.filter((d) => !d.resolved).length;
 
   // Determine if user can advance status
@@ -250,7 +250,7 @@ export default function AssemblyDetailScreen() {
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerModel, { color: colors.foreground }]}>
-            {glassProduct?.name ?? "Cam Montaj"}
+            {glassProducts.length > 0 ? `${glassProducts.length > 1 ? `${glassProducts.length} Cam` : glassProducts[0]?.name}` : "Cam Montaj"}
           </Text>
           <Text style={[styles.headerVin, { color: colors.mutedForeground }]}>{assembly.vin}</Text>
         </View>
@@ -358,12 +358,15 @@ export default function AssemblyDetailScreen() {
           <InfoRow label="Müşteri" value={CUSTOMER_NAME} colors={colors} />
           <InfoRow label="Araç" value={VEHICLE_MODEL} colors={colors} />
           <InfoRow label="Şase No" value={assembly.vin} colors={colors} mono />
-          {glassProduct && (
-            <>
-              <InfoRow label="Cam" value={glassProduct.name} colors={colors} />
-              <InfoRow label="Ürün Kodu" value={glassProduct.code} colors={colors} mono />
-            </>
-          )}
+          {glassProducts.map((g, i) => (
+            <View key={g!.id} style={[styles.glassRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Text style={[styles.glassRowNum, { color: colors.mutedForeground }]}>{i + 1}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.glassRowName, { color: colors.foreground }]}>{g!.name}</Text>
+                <Text style={[styles.glassRowCode, { color: colors.mutedForeground }]}>{g!.code}</Text>
+              </View>
+            </View>
+          ))}
           <InfoRow label="Personel" value={assembly.assignedTo} colors={colors} />
           <InfoRow label="Oluşturuldu" value={new Date(assembly.createdAt).toLocaleString("tr-TR")} colors={colors} />
           {assembly.completedAt && (
@@ -667,6 +670,10 @@ const styles = StyleSheet.create({
   defectInfo: { flex: 1, gap: 3 },
   defectDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   defectMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  glassRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, borderWidth: 1 },
+  glassRowNum: { fontSize: 12, fontFamily: "Inter_600SemiBold", width: 18, textAlign: "center" },
+  glassRowName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  glassRowCode: { fontSize: 11, fontFamily: "Inter_400Regular" },
   photoViewer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center" },
   photoViewerImg: { width: "100%", height: "80%" },
   photoViewerMeta: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16 },
