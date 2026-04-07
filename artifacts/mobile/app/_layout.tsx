@@ -26,6 +26,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="new-assembly" options={{ presentation: "modal" }} />
       <Stack.Screen name="assembly/[id]" />
+      <Stack.Screen name="manage-users" />
     </Stack>
   );
 }

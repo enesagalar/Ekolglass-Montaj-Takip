@@ -29,7 +29,10 @@ import { useColors } from "@/hooks/useColors";
 export default function NewAssemblyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { addAssembly, staffMembers, glassStock } = useApp();
+  const { addAssembly, glassStock, users, currentUser, role } = useApp();
+
+  const fieldStaff = users.filter((u) => u.role === "field" && u.active);
+  const defaultStaff = role === "field" && currentUser ? currentUser.name : fieldStaff[0]?.name ?? "";
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -37,7 +40,7 @@ export default function NewAssemblyScreen() {
   const [vin, setVin] = useState("");
   const [vinPhotoUri, setVinPhotoUri] = useState<string | undefined>();
   const [selectedGlassIds, setSelectedGlassIds] = useState<string[]>([]);
-  const [assignedTo, setAssignedTo] = useState(staffMembers[0]);
+  const [assignedTo, setAssignedTo] = useState(defaultStaff);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -100,11 +103,13 @@ export default function NewAssemblyScreen() {
   const createRecord = async () => {
     setLoading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const assignedUser = users.find((u) => u.name === assignedTo);
     const rec = addAssembly({
       vin: vin.trim().toUpperCase(),
       vinPhotoUri,
       glassProductIds: selectedGlassIds,
       assignedTo,
+      assignedToUserId: assignedUser?.id,
       notes: notes.trim(),
       status: "cutting" as AssemblyStatus,
       photos: [],
@@ -249,26 +254,33 @@ export default function NewAssemblyScreen() {
 
           {/* Staff */}
           <SectionLabel label="ATANAN PERSONEL" colors={colors} />
-          <View style={styles.staffPicker}>
-            {staffMembers.map((s) => (
-              <Pressable
-                key={s}
-                onPress={() => setAssignedTo(s)}
-                style={[
-                  styles.staffChip,
-                  {
-                    backgroundColor: assignedTo === s ? colors.primary + "15" : colors.muted,
-                    borderColor: assignedTo === s ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Feather name="user" size={13} color={assignedTo === s ? colors.primary : colors.mutedForeground} />
-                <Text style={[styles.staffChipText, { color: assignedTo === s ? colors.primary : colors.foreground }]}>
-                  {s}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          {role === "field" ? (
+            <View style={[styles.staffChip, { backgroundColor: colors.primary + "12", borderColor: colors.primary, alignSelf: "flex-start" }]}>
+              <Feather name="user" size={13} color={colors.primary} />
+              <Text style={[styles.staffChipText, { color: colors.primary }]}>{assignedTo}</Text>
+            </View>
+          ) : (
+            <View style={styles.staffPicker}>
+              {fieldStaff.map((s) => (
+                <Pressable
+                  key={s.id}
+                  onPress={() => setAssignedTo(s.name)}
+                  style={[
+                    styles.staffChip,
+                    {
+                      backgroundColor: assignedTo === s.name ? colors.primary + "15" : colors.muted,
+                      borderColor: assignedTo === s.name ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Feather name="user" size={13} color={assignedTo === s.name ? colors.primary : colors.mutedForeground} />
+                  <Text style={[styles.staffChipText, { color: assignedTo === s.name ? colors.primary : colors.foreground }]}>
+                    {s.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           {/* Notes */}
           <SectionLabel label="NOTLAR (İSTEĞE BAĞLI)" colors={colors} />

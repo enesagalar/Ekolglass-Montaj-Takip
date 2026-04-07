@@ -30,6 +30,17 @@ export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { assemblies, glassStock, consumables, role } = useApp();
 
+  if (role !== "admin") {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+        <Feather name="lock" size={36} color={colors.mutedForeground} />
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 12 }}>
+          Bu bölüm sadece yöneticiler içindir
+        </Text>
+      </View>
+    );
+  }
+
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 

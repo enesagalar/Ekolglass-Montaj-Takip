@@ -86,7 +86,9 @@ export default function AssemblyListScreen() {
       >
         <View style={styles.titleRow}>
           <View>
-            <Text style={[styles.title, { color: colors.foreground }]}>Montaj Kayıtları</Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              {role === "customer" ? "Araç Takip" : "Montaj Kayıtları"}
+            </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
               {statusCounts.all} kayıt
               {statusCounts["water_test_failed"] ? ` · ` : ""}

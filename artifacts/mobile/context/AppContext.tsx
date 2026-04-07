@@ -1,11 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 export type UserRole = "field" | "admin" | "customer" | null;
 
@@ -16,6 +10,16 @@ export type AssemblyStatus =
   | "water_test"
   | "water_test_failed"
   | "completed";
+
+export interface AppUser {
+  id: string;
+  username: string;
+  password: string;
+  name: string;
+  role: "field" | "admin" | "customer";
+  active: boolean;
+  createdAt: string;
+}
 
 export interface GlassProduct {
   id: string;
@@ -52,6 +56,15 @@ export const DEFAULT_CONSUMABLES: Consumable[] = [
   { id: "c6", name: "Koruyucu Örtü", unit: "adet", stock: 0, category: "other" },
 ];
 
+export const DEFAULT_USERS: AppUser[] = [
+  { id: "u-admin", username: "admin", password: "admin123", name: "Sistem Yöneticisi", role: "admin", active: true, createdAt: new Date().toISOString() },
+  { id: "u-mehmet", username: "mehmet", password: "1234", name: "Mehmet Demir", role: "field", active: true, createdAt: new Date().toISOString() },
+  { id: "u-ali", username: "ali", password: "1234", name: "Ali Çelik", role: "field", active: true, createdAt: new Date().toISOString() },
+  { id: "u-hasan", username: "hasan", password: "1234", name: "Hasan Yıldız", role: "field", active: true, createdAt: new Date().toISOString() },
+  { id: "u-murat", username: "murat", password: "1234", name: "Murat Özkan", role: "field", active: true, createdAt: new Date().toISOString() },
+  { id: "u-isri", username: "isri", password: "isri2024", name: "ISRI Müşteri", role: "customer", active: true, createdAt: new Date().toISOString() },
+];
+
 export const CUSTOMER_NAME = "ISRI";
 export const VEHICLE_MODEL = "Fiat Ducato";
 
@@ -77,6 +90,7 @@ export interface AssemblyRecord {
   vinPhotoUri?: string;
   glassProductIds: string[];
   assignedTo: string;
+  assignedToUserId?: string;
   status: AssemblyStatus;
   waterTestResult?: "passed" | "failed";
   photos: PhotoRecord[];
@@ -85,16 +99,31 @@ export interface AssemblyRecord {
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+  activityLog?: ActivityLogEntry[];
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  action: string;
+  userId: string;
+  userName: string;
+  timestamp: string;
 }
 
 interface AppContextType {
+  currentUser: AppUser | null;
   role: UserRole;
-  setRole: (role: UserRole) => void;
+  users: AppUser[];
+  login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  logout: () => void;
+  addUser: (user: Omit<AppUser, "id" | "createdAt">) => void;
+  updateUser: (id: string, updates: Partial<AppUser>) => void;
+  deleteUser: (id: string) => void;
   assemblies: AssemblyRecord[];
   glassStock: GlassProduct[];
   consumables: Consumable[];
   addAssembly: (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => AssemblyRecord;
-  updateAssembly: (id: string, updates: Partial<AssemblyRecord>) => void;
+  updateAssembly: (id: string, updates: Partial<AssemblyRecord>, logAction?: string) => void;
   deleteAssembly: (id: string) => void;
   getAssembly: (id: string) => AssemblyRecord | undefined;
   addPhoto: (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => void;
@@ -102,125 +131,118 @@ interface AppContextType {
   updateDefect: (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => void;
   updateStock: (productId: string, delta: number) => void;
   updateConsumable: (consumableId: string, delta: number) => void;
-  staffMembers: string[];
   getGlassProduct: (id: string) => GlassProduct | undefined;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 const STORAGE_KEY = "@cam_montaj_assemblies_v3";
-const ROLE_KEY = "@cam_montaj_role";
 const STOCK_KEY = "@cam_montaj_stock_v3";
 const CONSUMABLES_KEY = "@cam_montaj_consumables_v1";
+const USERS_KEY = "@cam_montaj_users_v1";
+const SESSION_KEY = "@cam_montaj_session_v1";
 
 const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
-    id: "asm-001",
-    vin: "VF3YHWMFB13459001",
-    glassProductIds: ["g1", "g2"],
-    assignedTo: "Mehmet Demir",
-    status: "installation",
-    photos: [],
-    defects: [],
+    id: "asm-001", vin: "VF3YHWMFB13459001", glassProductIds: ["g1", "g2"],
+    assignedTo: "Mehmet Demir", assignedToUserId: "u-mehmet",
+    status: "installation", photos: [], defects: [],
     notes: "Sağ taraf yan camlar değişimi.",
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 1800000).toISOString(),
   },
   {
-    id: "asm-002",
-    vin: "VF3YHWMFB13459002",
-    glassProductIds: ["g4"],
-    assignedTo: "Ali Çelik",
-    status: "water_test",
-    photos: [],
-    defects: [
-      { id: "def-001", description: "Sol köşede küçük çizik", severity: "low", resolved: true, timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
-    ],
-    notes: "Sol 1. yan cam.",
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    id: "asm-002", vin: "VF3YHWMFB13459002", glassProductIds: ["g4"],
+    assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
+    status: "water_test", photos: [],
+    defects: [{ id: "def-001", description: "Sol köşede küçük çizik", severity: "low", resolved: true, timestamp: new Date(Date.now() - 3600000).toISOString() }],
+    notes: "Sol 1. yan cam.", createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 2700000).toISOString(),
   },
   {
-    id: "asm-003",
-    vin: "VF3YHWMFB13459003",
-    glassProductIds: ["g7", "g8"],
-    assignedTo: "Hasan Yıldız",
-    status: "completed",
-    photos: [],
-    defects: [],
-    notes: "",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    completedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    waterTestResult: "passed",
+    id: "asm-003", vin: "VF3YHWMFB13459003", glassProductIds: ["g7", "g8"],
+    assignedTo: "Hasan Yıldız", assignedToUserId: "u-hasan",
+    status: "completed", photos: [], defects: [],
+    notes: "", waterTestResult: "passed",
+    createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
+    completedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
   },
   {
-    id: "asm-004",
-    vin: "VF3YHWMFB13459004",
-    glassProductIds: ["g2"],
-    assignedTo: "Ali Çelik",
-    status: "cutting",
-    photos: [],
-    defects: [],
+    id: "asm-004", vin: "VF3YHWMFB13459004", glassProductIds: ["g2"],
+    assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
+    status: "cutting", photos: [], defects: [],
     notes: "Sağ 2. yan cam.",
-    createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 1800000).toISOString(),
+    updatedAt: new Date(Date.now() - 1800000).toISOString(),
   },
   {
-    id: "asm-005",
-    vin: "VF3YHWMFB13459005",
-    glassProductIds: ["g3", "g6"],
-    assignedTo: "Murat Özkan",
-    status: "water_test_failed",
-    photos: [],
-    defects: [
-      { id: "def-002", description: "Sızdırmazlık yetersiz", severity: "high", resolved: false, timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    ],
+    id: "asm-005", vin: "VF3YHWMFB13459005", glassProductIds: ["g3", "g6"],
+    assignedTo: "Murat Özkan", assignedToUserId: "u-murat",
+    status: "water_test_failed", photos: [],
+    defects: [{ id: "def-002", description: "Sızdırmazlık yetersiz", severity: "high", resolved: false, timestamp: new Date(Date.now() - 2 * 3600000).toISOString() }],
     notes: "Su testinden kaldı.",
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 8 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
   },
 ];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<UserRole>(null);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
   const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_PRODUCTS);
   const [consumables, setConsumables] = useState<Consumable[]>(DEFAULT_CONSUMABLES);
 
-  const staffMembers = ["Mehmet Demir", "Ali Çelik", "Hasan Yıldız", "Murat Özkan"];
-
   useEffect(() => {
     const load = async () => {
       try {
-        const [savedRole, savedAssemblies, savedStock, savedConsumables] = await Promise.all([
-          AsyncStorage.getItem(ROLE_KEY),
-          AsyncStorage.getItem(STORAGE_KEY),
-          AsyncStorage.getItem(STOCK_KEY),
-          AsyncStorage.getItem(CONSUMABLES_KEY),
-        ]);
-        if (savedRole) setRoleState(savedRole as UserRole);
+        const [savedSession, savedUsers, savedAssemblies, savedStock, savedConsumables] =
+          await Promise.all([
+            AsyncStorage.getItem(SESSION_KEY),
+            AsyncStorage.getItem(USERS_KEY),
+            AsyncStorage.getItem(STORAGE_KEY),
+            AsyncStorage.getItem(STOCK_KEY),
+            AsyncStorage.getItem(CONSUMABLES_KEY),
+          ]);
+
+        let userList: AppUser[];
+        if (savedUsers) {
+          userList = JSON.parse(savedUsers);
+        } else {
+          userList = DEFAULT_USERS;
+          await AsyncStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
+        }
+        setUsers(userList);
+
+        if (savedSession) {
+          const userId = savedSession;
+          const found = userList.find((u) => u.id === userId && u.active);
+          if (found) setCurrentUser(found);
+        }
+
         if (savedAssemblies) setAssemblies(JSON.parse(savedAssemblies));
         else {
           setAssemblies(DEMO_ASSEMBLIES);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_ASSEMBLIES));
         }
-        if (savedStock) {
-          setGlassStock(JSON.parse(savedStock));
-        } else {
-          const initial = GLASS_PRODUCTS.map((g) => ({ ...g, stock: 8 }));
-          setGlassStock(initial);
-          await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(initial));
+
+        if (savedStock) setGlassStock(JSON.parse(savedStock));
+        else {
+          const init = GLASS_PRODUCTS.map((g) => ({ ...g, stock: 8 }));
+          setGlassStock(init);
+          await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(init));
         }
-        if (savedConsumables) {
-          setConsumables(JSON.parse(savedConsumables));
-        } else {
-          const initial = DEFAULT_CONSUMABLES.map((c) => ({ ...c, stock: 20 }));
-          setConsumables(initial);
-          await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(initial));
+
+        if (savedConsumables) setConsumables(JSON.parse(savedConsumables));
+        else {
+          const init = DEFAULT_CONSUMABLES.map((c) => ({ ...c, stock: 20 }));
+          setConsumables(init);
+          await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(init));
         }
-      } catch {
+      } catch (e) {
         setAssemblies(DEMO_ASSEMBLIES);
+        setUsers(DEFAULT_USERS);
       }
     };
     load();
@@ -241,35 +263,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(updated));
   }, []);
 
-  const setRole = useCallback(async (r: UserRole) => {
-    setRoleState(r);
-    if (r) await AsyncStorage.setItem(ROLE_KEY, r);
-    else await AsyncStorage.removeItem(ROLE_KEY);
+  const saveUsers = useCallback(async (updated: AppUser[]) => {
+    setUsers(updated);
+    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(updated));
   }, []);
+
+  const login = useCallback(async (username: string, password: string) => {
+    const trimmed = username.trim().toLowerCase();
+    const found = users.find(
+      (u) => u.username.toLowerCase() === trimmed && u.password === password && u.active
+    );
+    if (!found) return { success: false, message: "Kullanıcı adı veya şifre hatalı." };
+    setCurrentUser(found);
+    await AsyncStorage.setItem(SESSION_KEY, found.id);
+    return { success: true };
+  }, [users]);
+
+  const logout = useCallback(async () => {
+    setCurrentUser(null);
+    await AsyncStorage.removeItem(SESSION_KEY);
+  }, []);
+
+  const addUser = useCallback((user: Omit<AppUser, "id" | "createdAt">) => {
+    const newUser: AppUser = { ...user, id: `u-${Date.now()}`, createdAt: new Date().toISOString() };
+    saveUsers([...users, newUser]);
+  }, [users, saveUsers]);
+
+  const updateUser = useCallback((id: string, updates: Partial<AppUser>) => {
+    const updated = users.map((u) => u.id === id ? { ...u, ...updates } : u);
+    saveUsers(updated);
+    if (currentUser?.id === id) {
+      const refreshed = updated.find((u) => u.id === id);
+      if (refreshed) setCurrentUser(refreshed);
+    }
+  }, [users, currentUser, saveUsers]);
+
+  const deleteUser = useCallback((id: string) => {
+    saveUsers(users.filter((u) => u.id !== id));
+  }, [users, saveUsers]);
 
   const addAssembly = useCallback(
     (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => {
       const now = new Date().toISOString();
-      const newRecord: AssemblyRecord = { ...data, id: `asm-${Date.now()}`, createdAt: now, updatedAt: now };
-      const updated = [newRecord, ...assemblies];
-      saveAssemblies(updated);
+      const logEntry: ActivityLogEntry = { id: `log-${Date.now()}`, action: "Kayıt oluşturuldu", userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now };
+      const newRecord: AssemblyRecord = { ...data, id: `asm-${Date.now()}`, createdAt: now, updatedAt: now, activityLog: [logEntry] };
+      saveAssemblies([newRecord, ...assemblies]);
       const updatedStock = glassStock.map((g) =>
         data.glassProductIds.includes(g.id) ? { ...g, stock: Math.max(0, g.stock - 1) } : g
       );
       saveStock(updatedStock);
       return newRecord;
     },
-    [assemblies, glassStock, saveAssemblies, saveStock]
+    [assemblies, glassStock, currentUser, saveAssemblies, saveStock]
   );
 
   const updateAssembly = useCallback(
-    (id: string, updates: Partial<AssemblyRecord>) => {
-      const updated = assemblies.map((a) =>
-        a.id === id ? { ...a, ...updates, updatedAt: new Date().toISOString() } : a
-      );
+    (id: string, updates: Partial<AssemblyRecord>, logAction?: string) => {
+      const now = new Date().toISOString();
+      const updated = assemblies.map((a) => {
+        if (a.id !== id) return a;
+        const log = logAction
+          ? [...(a.activityLog ?? []), { id: `log-${Date.now()}`, action: logAction, userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now }]
+          : a.activityLog;
+        return { ...a, ...updates, updatedAt: now, activityLog: log };
+      });
       saveAssemblies(updated);
     },
-    [assemblies, saveAssemblies]
+    [assemblies, currentUser, saveAssemblies]
   );
 
   const deleteAssembly = useCallback(
@@ -277,18 +337,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [assemblies, saveAssemblies]
   );
 
-  const getAssembly = useCallback(
-    (id: string) => assemblies.find((a) => a.id === id),
-    [assemblies]
-  );
+  const getAssembly = useCallback((id: string) => assemblies.find((a) => a.id === id), [assemblies]);
 
   const addPhoto = useCallback(
     (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => {
       const newPhoto: PhotoRecord = { ...photo, id: `photo-${Date.now()}`, timestamp: new Date().toISOString() };
-      const updated = assemblies.map((a) =>
+      saveAssemblies(assemblies.map((a) =>
         a.id === assemblyId ? { ...a, photos: [...a.photos, newPhoto], updatedAt: new Date().toISOString() } : a
-      );
-      saveAssemblies(updated);
+      ));
     },
     [assemblies, saveAssemblies]
   );
@@ -296,60 +352,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addDefect = useCallback(
     (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => {
       const newDefect: DefectRecord = { ...defect, id: `def-${Date.now()}`, timestamp: new Date().toISOString() };
-      const updated = assemblies.map((a) =>
+      saveAssemblies(assemblies.map((a) =>
         a.id === assemblyId ? { ...a, defects: [...a.defects, newDefect], updatedAt: new Date().toISOString() } : a
-      );
-      saveAssemblies(updated);
+      ));
     },
     [assemblies, saveAssemblies]
   );
 
   const updateDefect = useCallback(
     (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => {
-      const updated = assemblies.map((a) =>
+      saveAssemblies(assemblies.map((a) =>
         a.id === assemblyId
-          ? { ...a, defects: a.defects.map((d) => (d.id === defectId ? { ...d, ...updates } : d)), updatedAt: new Date().toISOString() }
+          ? { ...a, defects: a.defects.map((d) => d.id === defectId ? { ...d, ...updates } : d), updatedAt: new Date().toISOString() }
           : a
-      );
-      saveAssemblies(updated);
+      ));
     },
     [assemblies, saveAssemblies]
   );
 
-  const updateStock = useCallback(
-    (productId: string, delta: number) => {
-      const updated = glassStock.map((g) =>
-        g.id === productId ? { ...g, stock: Math.max(0, g.stock + delta) } : g
-      );
-      saveStock(updated);
-    },
-    [glassStock, saveStock]
-  );
+  const updateStock = useCallback((productId: string, delta: number) => {
+    saveStock(glassStock.map((g) => g.id === productId ? { ...g, stock: Math.max(0, g.stock + delta) } : g));
+  }, [glassStock, saveStock]);
 
-  const updateConsumable = useCallback(
-    (consumableId: string, delta: number) => {
-      const updated = consumables.map((c) =>
-        c.id === consumableId ? { ...c, stock: Math.max(0, c.stock + delta) } : c
-      );
-      saveConsumables(updated);
-    },
-    [consumables, saveConsumables]
-  );
+  const updateConsumable = useCallback((consumableId: string, delta: number) => {
+    saveConsumables(consumables.map((c) => c.id === consumableId ? { ...c, stock: Math.max(0, c.stock + delta) } : c));
+  }, [consumables, saveConsumables]);
 
-  const getGlassProduct = useCallback(
-    (id: string) => glassStock.find((g) => g.id === id),
-    [glassStock]
-  );
+  const getGlassProduct = useCallback((id: string) => glassStock.find((g) => g.id === id), [glassStock]);
+
+  const role: UserRole = currentUser?.role ?? null;
 
   return (
-    <AppContext.Provider
-      value={{
-        role, setRole, assemblies, glassStock, consumables,
-        addAssembly, updateAssembly, deleteAssembly, getAssembly,
-        addPhoto, addDefect, updateDefect, updateStock, updateConsumable,
-        staffMembers, getGlassProduct,
-      }}
-    >
+    <AppContext.Provider value={{
+      currentUser, role, users, login, logout, addUser, updateUser, deleteUser,
+      assemblies, glassStock, consumables,
+      addAssembly, updateAssembly, deleteAssembly, getAssembly,
+      addPhoto, addDefect, updateDefect, updateStock, updateConsumable, getGlassProduct,
+    }}>
       {children}
     </AppContext.Provider>
   );
