@@ -19,7 +19,7 @@ import { useColors } from "@/hooks/useColors";
 const ROLE_LABELS: Record<string, string> = {
   admin: "Yönetici",
   field: "Saha Personeli",
-  customer: "Müşteri",
+  customer: "ISRI Yetkilisi",
 };
 
 const ROLE_COLORS: Record<string, string> = {

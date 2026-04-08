@@ -44,10 +44,9 @@ type FilterType = PhotoType | "all";
 
 const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
   { label: "Tümü", value: "all" },
-  { label: "Onay", value: "approval_doc" },
+  { label: "Onay Belgesi", value: "approval_doc" },
   { label: "Şase", value: "vin" },
-  { label: "Kesim Öncesi", value: "cutting_before" },
-  { label: "Kesim Sonrası", value: "cutting_after" },
+  { label: "Montaj Öncesi", value: "installation_before" },
   { label: "Montaj Sonrası", value: "installation_after" },
   { label: "Su Testi", value: "water_test" },
   { label: "Kusur", value: "defect" },

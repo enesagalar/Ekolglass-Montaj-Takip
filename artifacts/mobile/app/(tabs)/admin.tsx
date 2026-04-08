@@ -9,10 +9,10 @@ import { AssemblyStatus, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const STATUS_LABELS: Record<AssemblyStatus, string> = {
-  cutting: "Kesim",
-  installation: "Montaj",
+  cutting: "Beklemede",
+  installation: "Montajda",
   installation_done: "Montaj Tamam",
-  water_test: "Su Testi",
+  water_test: "Su Testinde",
   water_test_failed: "Test Başarısız",
   completed: "Tamamlandı",
 };

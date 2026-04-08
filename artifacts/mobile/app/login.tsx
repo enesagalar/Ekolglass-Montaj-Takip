@@ -185,7 +185,7 @@ export default function LoginScreen() {
             <Text style={[styles.hintTitle, { color: colors.foreground }]}>Demo Hesapları</Text>
             <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>Admin: <Text style={{ fontFamily: "Inter_600SemiBold" }}>admin / admin123</Text></Text>
             <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>Personel: <Text style={{ fontFamily: "Inter_600SemiBold" }}>mehmet / 1234</Text></Text>
-            <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>Müşteri: <Text style={{ fontFamily: "Inter_600SemiBold" }}>isri / isri2024</Text></Text>
+            <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>ISRI: <Text style={{ fontFamily: "Inter_600SemiBold" }}>isri / isri2024</Text></Text>
           </View>
         </View>
       </ScrollView>

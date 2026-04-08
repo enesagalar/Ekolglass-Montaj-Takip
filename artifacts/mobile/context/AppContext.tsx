@@ -88,7 +88,7 @@ export const DEFAULT_USERS: AppUser[] = [
   { id: "u-ali", username: "ali", password: "1234", name: "Ali Çelik", role: "field", active: true, createdAt: new Date().toISOString() },
   { id: "u-hasan", username: "hasan", password: "1234", name: "Hasan Yıldız", role: "field", active: true, createdAt: new Date().toISOString() },
   { id: "u-murat", username: "murat", password: "1234", name: "Murat Özkan", role: "field", active: true, createdAt: new Date().toISOString() },
-  { id: "u-isri", username: "isri", password: "isri2024", name: "ISRI Müşteri", role: "customer", active: true, createdAt: new Date().toISOString() },
+  { id: "u-isri", username: "isri", password: "isri2024", name: "ISRI", role: "customer", active: true, createdAt: new Date().toISOString() },
 ];
 
 export const CUSTOMER_NAME = "ISRI";

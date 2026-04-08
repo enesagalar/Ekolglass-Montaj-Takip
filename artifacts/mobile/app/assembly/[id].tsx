@@ -38,12 +38,12 @@ const STATUS_FLOW: AssemblyStatus[] = [
 ];
 
 const STATUS_TIMELINE_LABELS: Partial<Record<AssemblyStatus, string>> = {
-  cutting: "Kesim Başladı",
-  installation: "Montaja Geçildi",
+  cutting: "Kayıt Açıldı",
+  installation: "Montaja Başlandı",
   installation_done: "Montaj Tamamlandı",
   water_test: "Su Testine Gönderildi",
   water_test_failed: "Su Testinden Kaldı",
-  completed: "Tamamlandı",
+  completed: "İşlem Tamamlandı",
 };
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
@@ -239,29 +239,23 @@ export default function AssemblyDetailScreen() {
   type CaptureFlowExtra = Partial<{ installationCompletedAt: string; waterTestCustomerApproval: "pending" }>;
 
   const startCaptureFlow = (
-    stage: "cutting" | "installation",
+    stage: "before" | "after",
     pendingStatus: AssemblyStatus,
     extraUpdates?: CaptureFlowExtra
   ) => {
-    const steps: CaptureStep[] =
-      stage === "cutting"
-        ? [
-            { label: "Kesim Öncesi", hint: "Camı kesmeden önceki durumu kaydedin (genel görünüm)", photoType: "cutting_before" },
-            ...CAPTURE_ANGLES.map((angle) => ({
-              label: `Kesim Sonrası · ${angle}`,
-              hint: `Kesim bitti — ${angle.toLowerCase()} açıdan çekin (montaj öncesi durum)`,
-              photoType: "cutting_after" as PhotoType,
-              angle,
-            })),
-          ]
-        : [
-            ...CAPTURE_ANGLES.map((angle) => ({
-              label: `Montaj Sonrası · ${angle}`,
-              hint: `Montaj tamamlandı — ${angle.toLowerCase()} açıdan çekin`,
-              photoType: "installation_after" as PhotoType,
-              angle,
-            })),
-          ];
+    const steps: CaptureStep[] = stage === "before"
+      ? CAPTURE_ANGLES.map((angle) => ({
+          label: `Montaj Öncesi · ${angle}`,
+          hint: `Montaja başlamadan önce ${angle.toLowerCase()} taraftan çekin`,
+          photoType: "installation_before" as PhotoType,
+          angle,
+        }))
+      : CAPTURE_ANGLES.map((angle) => ({
+          label: `Montaj Sonrası · ${angle}`,
+          hint: `Montaj bitti — ${angle.toLowerCase()} taraftan çekin`,
+          photoType: "installation_after" as PhotoType,
+          angle,
+        }));
     setCaptureFlow({ steps, currentIdx: 0, pendingStatus, extraUpdates });
   };
 
@@ -288,12 +282,12 @@ export default function AssemblyDetailScreen() {
     if (!next) return;
 
     if (assembly.status === "cutting" && next === "installation") {
-      startCaptureFlow("cutting", "installation");
+      startCaptureFlow("before", "installation");
       return;
     }
 
     if (assembly.status === "installation" && next === "installation_done") {
-      startCaptureFlow("installation", "installation_done", {
+      startCaptureFlow("after", "installation_done", {
         installationCompletedAt: new Date().toISOString(),
       });
       return;
@@ -302,7 +296,7 @@ export default function AssemblyDetailScreen() {
     if (assembly.status === "installation_done" && next === "water_test") {
       Alert.alert(
         "Su Testine Gönder",
-        "Araç su testine gönderilecek. Müşteriden onay bekleniyor olarak işaretlenecek.",
+        "Araç su testine gönderilecek. ISRI onayı bekleniyor olarak işaretlenecek.",
         [
           { text: "İptal", style: "cancel" },
           {
@@ -343,7 +337,7 @@ export default function AssemblyDetailScreen() {
               status: "completed",
               waterTestResult: "passed",
               completedAt: now,
-            }, "Müşteri tarafından su testi onaylandı");
+            }, "ISRI tarafından su testi onaylandı");
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           },
         },
@@ -359,7 +353,7 @@ export default function AssemblyDetailScreen() {
               waterTestCustomerApproval: "rejected",
               status: "water_test_failed",
               waterTestResult: "failed",
-            }, "Müşteri tarafından su testi reddedildi");
+            }, "ISRI tarafından su testi reddedildi");
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           },
         },
@@ -530,10 +524,10 @@ export default function AssemblyDetailScreen() {
                   {assembly.waterTestCustomerApproval === "pending" ? (
                     <>
                       <Text style={[styles.customerApprovalTitle, { color: colors.foreground }]}>
-                        Su Testi Sonucunu Onaylayın
+                        Su Testi Sonucu
                       </Text>
                       <Text style={[styles.customerApprovalHint, { color: colors.mutedForeground }]}>
-                        Aracın su testi sonucunu bildirin.
+                        Aracın su testi sonucunu değerlendirin.
                       </Text>
                       <View style={styles.customerApprovalBtns}>
                         <Pressable
@@ -563,7 +557,7 @@ export default function AssemblyDetailScreen() {
                 <View style={[styles.alertBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
                   <Feather name="clock" size={15} color={colors.mutedForeground} />
                   <Text style={[styles.alertBoxText, { color: colors.mutedForeground }]}>
-                    Müşteri onayı bekleniyor
+                    ISRI onayı bekleniyor
                   </Text>
                 </View>
               )}
@@ -604,11 +598,18 @@ export default function AssemblyDetailScreen() {
                 },
               ]}
             >
-              <Feather name="arrow-right" size={18} color={assembly.status === "water_test_failed" && !isAdmin ? colors.mutedForeground : "#fff"} />
+              <Feather
+                name={assembly.status === "cutting" ? "play" : assembly.status === "installation" ? "check" : "arrow-right"}
+                size={18}
+                color={assembly.status === "water_test_failed" && !isAdmin ? colors.mutedForeground : "#fff"}
+              />
               <Text style={[styles.advanceBtnText, { color: assembly.status === "water_test_failed" && !isAdmin ? colors.mutedForeground : "#fff" }]}>
                 {assembly.status === "water_test_failed"
                   ? isAdmin ? "Tamamlandı Yap (Admin)" : "Yönetici Gerekli"
-                  : `${STATUS_LABELS[getNextStatus(assembly.status) ?? "completed"]} →`}
+                  : assembly.status === "cutting" ? "Montajı Başlat"
+                  : assembly.status === "installation" ? "Montajı Tamamla"
+                  : assembly.status === "installation_done" ? "Su Testine Gönder"
+                  : STATUS_LABELS[getNextStatus(assembly.status) ?? "completed"]}
               </Text>
             </Pressable>
           )}
@@ -639,7 +640,7 @@ export default function AssemblyDetailScreen() {
         {/* --- Info + Glass --- */}
         <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Kayıt Bilgileri</Text>
-          <InfoRow label="Müşteri" value={CUSTOMER_NAME} colors={colors} />
+          <InfoRow label="Firma" value={CUSTOMER_NAME} colors={colors} />
           <InfoRow label="Marka" value={brandName} colors={colors} />
           <InfoRow label="Şase No" value={`···${assembly.vinLast5 ?? assembly.vin?.slice(-5)}`} colors={colors} mono />
           <InfoRow label="Personel" value={assembly.assignedTo} colors={colors} />
@@ -737,7 +738,7 @@ export default function AssemblyDetailScreen() {
           {canEdit && (
             <>
               <View style={styles.photoTypeRow}>
-                {(["cutting_before", "cutting_after", "installation_before", "installation_after", "water_test", "defect", "other"] as PhotoType[]).map((t) => (
+                {(["installation_before", "installation_after", "water_test", "defect", "other"] as PhotoType[]).map((t) => (
                   <Pressable
                     key={t}
                     onPress={() => setPhotoType(t)}
@@ -972,13 +973,15 @@ export default function AssemblyDetailScreen() {
               {step.uri && (
                 <Pressable
                   onPress={handleCaptureAdvance}
-                  style={[styles.captureNextBtn, { backgroundColor: colors.success }]}
+                  style={[styles.captureNextBtn, { backgroundColor: isLast ? colors.success : colors.primary }]}
                 >
                   <Feather name={isLast ? "check-circle" : "arrow-right"} size={18} color="#fff" />
                   <Text style={styles.captureNextBtnText}>
                     {isLast
-                      ? `Tamamla ve ${STATUS_LABELS[captureFlow.pendingStatus]}a Geç`
-                      : `Sonraki Açı → (${doneCount}/${captureFlow.steps.length - 1} sonrası tamamlandı)`}
+                      ? captureFlow.pendingStatus === "installation"
+                        ? "Fotoğrafları Kaydet — Montaja Başla"
+                        : "Fotoğrafları Kaydet — Montaj Tamamlandı"
+                      : `Sonraki (${doneCount + 1}/${captureFlow.steps.length})`}
                   </Text>
                 </Pressable>
               )}

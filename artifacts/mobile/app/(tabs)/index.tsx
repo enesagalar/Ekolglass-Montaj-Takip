@@ -20,8 +20,8 @@ import { useColors } from "@/hooks/useColors";
 
 const FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tümü", value: "all" },
-  { label: "Kesim", value: "cutting" },
-  { label: "Montaj", value: "installation" },
+  { label: "Beklemede", value: "cutting" },
+  { label: "Montajda", value: "installation" },
   { label: "Montaj Tamam", value: "installation_done" },
   { label: "Su Testi", value: "water_test" },
   { label: "Test Başarısız", value: "water_test_failed" },

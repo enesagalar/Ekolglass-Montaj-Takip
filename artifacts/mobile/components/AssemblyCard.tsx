@@ -102,7 +102,7 @@ export function AssemblyCard({ assembly }: AssemblyCardProps) {
       {isWaterTestPending && (
         <View style={[styles.pendingBadge, { backgroundColor: colors.warning + "15", borderColor: colors.warning + "40" }]}>
           <Feather name="clock" size={11} color={colors.warning} />
-          <Text style={[styles.pendingText, { color: colors.warning }]}>Müşteri onayı bekleniyor</Text>
+          <Text style={[styles.pendingText, { color: colors.warning }]}>ISRI onayı bekleniyor</Text>
         </View>
       )}
 

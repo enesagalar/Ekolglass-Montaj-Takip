@@ -20,7 +20,7 @@ import { useColors } from "@/hooks/useColors";
 
 type NewUserForm = { username: string; password: string; name: string; role: "field" | "admin" | "customer" };
 
-const ROLE_LABELS: Record<string, string> = { admin: "Yönetici", field: "Saha Personeli", customer: "Müşteri" };
+const ROLE_LABELS: Record<string, string> = { admin: "Yönetici", field: "Saha Personeli", customer: "ISRI Yetkilisi" };
 const ROLE_COLORS: Record<string, string> = { admin: "#8b5cf6", field: "#0a84ff", customer: "#10b981" };
 const ROLE_ICONS: Record<string, any> = { admin: "shield", field: "tool", customer: "eye" };
 
