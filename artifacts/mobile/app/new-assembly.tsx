@@ -155,7 +155,7 @@ export default function NewAssemblyScreen() {
     });
     setLoading(false);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace(`/assembly/${rec.id}` as any);
+    router.replace({ pathname: "/assembly/[id]", params: { id: rec.id } });
   };
 
   const renderProgressBar = () => (

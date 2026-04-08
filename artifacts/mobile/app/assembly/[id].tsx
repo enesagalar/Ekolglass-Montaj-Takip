@@ -135,6 +135,40 @@ export default function AssemblyDetailScreen() {
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoRecord | null>(null);
   const [captureFlow, setCaptureFlow] = useState<CaptureFlow>(null);
   const [countdown, setCountdown] = useState<string>("");
+  const autoLaunchPending = useRef(false);
+
+  // Auto-open camera when a capture step begins (on mobile)
+  useEffect(() => {
+    if (!captureFlow) {
+      autoLaunchPending.current = false;
+      return;
+    }
+    const currentStep = captureFlow.steps[captureFlow.currentIdx];
+    if (currentStep?.uri) return;
+    if (autoLaunchPending.current) return;
+    if (Platform.OS === "web") return;
+
+    autoLaunchPending.current = true;
+    (async () => {
+      try {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) return;
+        const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false });
+        if (!result.canceled && result.assets.length > 0) {
+          const uri = result.assets[0].uri;
+          setCaptureFlow((prev) => {
+            if (!prev) return null;
+            const updatedSteps = prev.steps.map((s, i) =>
+              i === prev.currentIdx ? { ...s, uri } : s
+            );
+            return { ...prev, steps: updatedSteps };
+          });
+        }
+      } finally {
+        autoLaunchPending.current = false;
+      }
+    })();
+  }, [captureFlow?.currentIdx, captureFlow !== null]);
 
   // 4-hour countdown
   useEffect(() => {
@@ -366,7 +400,7 @@ export default function AssemblyDetailScreen() {
           onPress: async () => {
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             deleteAssembly(assembly.id);
-            router.replace("/(tabs)" as any);
+            router.replace("/(tabs)");
           },
         },
       ]

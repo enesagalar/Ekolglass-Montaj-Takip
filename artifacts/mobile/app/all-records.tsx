@@ -27,7 +27,8 @@ const FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tamamlandı", value: "completed" },
 ];
 
-const SORT_OPTIONS = [
+type SortOptionValue = "updated" | "created" | "status";
+const SORT_OPTIONS: { label: string; value: SortOptionValue }[] = [
   { label: "Güncelleme", value: "updated" },
   { label: "Oluşturma", value: "created" },
   { label: "Statü", value: "status" },
@@ -43,7 +44,7 @@ export default function AllRecordsScreen() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<AssemblyStatus | "all">("all");
-  const [sortBy, setSortBy] = useState<"updated" | "created" | "status">("updated");
+  const [sortBy, setSortBy] = useState<SortOptionValue>("updated");
 
   const statusCounts = useMemo(() => {
     const counts: Partial<Record<AssemblyStatus | "all", number>> = { all: assemblies.length };
@@ -112,7 +113,7 @@ export default function AllRecordsScreen() {
           {SORT_OPTIONS.map((opt) => (
             <Pressable
               key={opt.value}
-              onPress={() => setSortBy(opt.value as any)}
+              onPress={() => setSortBy(opt.value)}
               style={[
                 styles.sortChip,
                 {

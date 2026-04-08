@@ -69,7 +69,7 @@ export function AssemblyCard({ assembly }: AssemblyCardProps) {
           opacity: pressed ? 0.92 : 1,
         },
       ]}
-      onPress={() => router.push(`/assembly/${assembly.id}` as any)}
+      onPress={() => router.push({ pathname: "/assembly/[id]", params: { id: assembly.id } })}
     >
       {/* Top row */}
       <View style={styles.header}>

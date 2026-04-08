@@ -116,7 +116,7 @@ export default function AssemblyListScreen() {
           <View style={styles.titleActions}>
             {/* All records */}
             <Pressable
-              onPress={() => router.push("/all-records" as any)}
+              onPress={() => router.push("/all-records" )}
               style={[styles.iconBtn, { backgroundColor: colors.muted }]}
             >
               <Feather name="archive" size={18} color={colors.foreground} />
@@ -127,7 +127,7 @@ export default function AssemblyListScreen() {
               <Pressable
                 onPress={async () => {
                   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  router.push("/new-assembly" as any);
+                  router.push("/new-assembly" );
                 }}
                 style={[styles.addBtn, { backgroundColor: colors.primary }]}
               >
@@ -240,7 +240,7 @@ export default function AssemblyListScreen() {
           </Text>
           {!search && filter === "all" && (
             <Pressable
-              onPress={() => router.push("/all-records" as any)}
+              onPress={() => router.push("/all-records" )}
               style={[styles.viewAllBtn, { borderColor: colors.border }]}
             >
               <Feather name="archive" size={15} color={colors.mutedForeground} />
