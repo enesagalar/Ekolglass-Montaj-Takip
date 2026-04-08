@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Cam Montaj Takip",
-    "slug": "mobile",
+    "name": "EKOLGLASS MONTAJ TAKİP",
+    "slug": "ekolglassmontajtakip",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "ekolglassmontajtakip",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -14,11 +14,14 @@
       "backgroundColor": "#f4f6f9"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ekolglassmontajtakip.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.ekolglassmontajtakip.app"
+    },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
