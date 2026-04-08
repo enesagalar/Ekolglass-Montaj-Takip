@@ -317,12 +317,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (savedAssemblies) {
           const parsed: AssemblyRecord[] = JSON.parse(savedAssemblies);
           setAssemblies(parsed.map((a) => ({
-            vehicleModel: "fiat-ducato",
-            vinLast5: a.vin?.slice(-5) ?? "",
-            statusTimestamps: {},
-            waterTestCustomerApproval: undefined,
-            installationCompletedAt: undefined,
             ...a,
+            vehicleModel: a.vehicleModel ?? "fiat-ducato",
+            vinLast5: a.vinLast5 ?? a.vin?.slice(-5) ?? "",
+            statusTimestamps: a.statusTimestamps ?? {},
           })));
         } else {
           setAssemblies(DEMO_ASSEMBLIES);
