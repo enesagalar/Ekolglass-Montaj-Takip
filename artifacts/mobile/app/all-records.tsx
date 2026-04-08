@@ -14,16 +14,16 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AssemblyCard } from "@/components/AssemblyCard";
-import { AssemblyStatus, useApp } from "@/context/AppContext";
+import { AssemblyStatus, VEHICLE_BRANDS, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
-const FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
+const STATUS_FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tümü", value: "all" },
   { label: "Kesim", value: "cutting" },
   { label: "Montaj", value: "installation" },
   { label: "Montaj Tamam", value: "installation_done" },
   { label: "Su Testi", value: "water_test" },
-  { label: "Test Başarısız", value: "water_test_failed" },
+  { label: "Başarısız", value: "water_test_failed" },
   { label: "Tamamlandı", value: "completed" },
 ];
 
@@ -31,8 +31,29 @@ type SortOptionValue = "updated" | "created" | "status";
 const SORT_OPTIONS: { label: string; value: SortOptionValue }[] = [
   { label: "Güncelleme", value: "updated" },
   { label: "Oluşturma", value: "created" },
-  { label: "Statü", value: "status" },
+  { label: "Öncelik", value: "status" },
 ];
+
+type DateRange = "today" | "week" | "month" | "all";
+const DATE_RANGES: { label: string; value: DateRange }[] = [
+  { label: "Bugün", value: "today" },
+  { label: "Hafta", value: "week" },
+  { label: "Ay", value: "month" },
+  { label: "Tümü", value: "all" },
+];
+
+function getDateStart(range: DateRange): Date {
+  const now = new Date();
+  if (range === "today") { const d = new Date(now); d.setHours(0, 0, 0, 0); return d; }
+  if (range === "week") { const d = new Date(now); d.setDate(d.getDate() - 7); d.setHours(0, 0, 0, 0); return d; }
+  if (range === "month") { const d = new Date(now); d.setDate(1); d.setHours(0, 0, 0, 0); return d; }
+  return new Date(0);
+}
+
+const STATUS_PRIORITY: Record<AssemblyStatus, number> = {
+  water_test_failed: 0, water_test: 1, installation_done: 2,
+  installation: 3, cutting: 4, completed: 5,
+};
 
 export default function AllRecordsScreen() {
   const colors = useColors();
@@ -43,8 +64,12 @@ export default function AllRecordsScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<AssemblyStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
+  const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [sortBy, setSortBy] = useState<SortOptionValue>("updated");
+
+  const dateStart = useMemo(() => getDateStart(dateRange), [dateRange]);
 
   const statusCounts = useMemo(() => {
     const counts: Partial<Record<AssemblyStatus | "all", number>> = { all: assemblies.length };
@@ -56,24 +81,30 @@ export default function AllRecordsScreen() {
     const q = search.toLowerCase();
     return assemblies
       .filter((a) => {
-        const matchStatus = filter === "all" || a.status === filter;
+        const matchStatus = statusFilter === "all" || a.status === statusFilter;
+        const matchBrand = brandFilter === "all" || a.vehicleModel === brandFilter;
+        const matchDate = new Date(a.createdAt) >= dateStart;
         const matchSearch =
           !q ||
           (a.vinLast5 ?? a.vin)?.toLowerCase().includes(q) ||
           a.vin?.toLowerCase().includes(q) ||
           a.assignedTo.toLowerCase().includes(q);
-        return matchStatus && matchSearch;
+        return matchStatus && matchBrand && matchDate && matchSearch;
       })
       .sort((a, b) => {
         if (sortBy === "updated") return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         if (sortBy === "created") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        const priority: Record<AssemblyStatus, number> = {
-          water_test_failed: 0, water_test: 1, installation_done: 2,
-          installation: 3, cutting: 4, completed: 5,
-        };
-        return (priority[a.status] ?? 9) - (priority[b.status] ?? 9);
+        return (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9);
       });
-  }, [assemblies, filter, search, sortBy]);
+  }, [assemblies, statusFilter, brandFilter, dateRange, dateStart, search, sortBy]);
+
+  const summaryStats = useMemo(() => {
+    const completed = filtered.filter((a) => a.status === "completed").length;
+    const active = filtered.filter((a) => a.status !== "completed").length;
+    const failed = filtered.filter((a) => a.status === "water_test_failed").length;
+    const photos = filtered.reduce((s, a) => s + a.photos.length, 0);
+    return { completed, active, failed, photos };
+  }, [filtered]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -85,13 +116,14 @@ export default function AllRecordsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Tüm Kayıtlar</Text>
           <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-            {assemblies.length} toplam kayıt
+            {filtered.length} / {assemblies.length} kayıt gösteriliyor
           </Text>
         </View>
       </View>
 
-      {/* Search + sort + filter */}
+      {/* Controls */}
       <View style={[styles.controls, { borderBottomColor: colors.border }]}>
+        {/* Search */}
         <View style={[styles.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <Feather name="search" size={16} color={colors.mutedForeground} />
           <TextInput
@@ -108,63 +140,73 @@ export default function AllRecordsScreen() {
           )}
         </View>
 
-        {/* Sort */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+        {/* Date range + sort */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {DATE_RANGES.map((r) => (
+            <Pressable
+              key={r.value}
+              onPress={() => setDateRange(r.value)}
+              style={[styles.chip, { backgroundColor: dateRange === r.value ? colors.foreground : colors.muted, borderColor: colors.border }]}
+            >
+              <Text style={[styles.chipText, { color: dateRange === r.value ? colors.background : colors.mutedForeground }]}>
+                {r.label}
+              </Text>
+            </Pressable>
+          ))}
+          <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
           {SORT_OPTIONS.map((opt) => (
             <Pressable
               key={opt.value}
               onPress={() => setSortBy(opt.value)}
-              style={[
-                styles.sortChip,
-                {
-                  backgroundColor: sortBy === opt.value ? colors.foreground : colors.muted,
-                  borderColor: sortBy === opt.value ? colors.foreground : colors.border,
-                },
-              ]}
+              style={[styles.chip, { backgroundColor: sortBy === opt.value ? colors.primary : colors.muted, borderColor: sortBy === opt.value ? colors.primary : colors.border }]}
             >
-              <Text style={[styles.sortChipText, { color: sortBy === opt.value ? colors.background : colors.mutedForeground }]}>
+              <Text style={[styles.chipText, { color: sortBy === opt.value ? "#fff" : colors.mutedForeground }]}>
                 {opt.label}
               </Text>
             </Pressable>
           ))}
         </ScrollView>
 
+        {/* Brand filter */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <Pressable
+            onPress={() => setBrandFilter("all")}
+            style={[styles.chip, { backgroundColor: brandFilter === "all" ? colors.foreground : colors.muted, borderColor: colors.border }]}
+          >
+            <Text style={[styles.chipText, { color: brandFilter === "all" ? colors.background : colors.mutedForeground }]}>Tüm Markalar</Text>
+          </Pressable>
+          {VEHICLE_BRANDS.map((b) => (
+            <Pressable
+              key={b.id}
+              onPress={() => setBrandFilter(b.id)}
+              style={[styles.chip, { backgroundColor: brandFilter === b.id ? colors.foreground : colors.muted, borderColor: colors.border }]}
+            >
+              <Text style={[styles.chipText, { color: brandFilter === b.id ? colors.background : colors.mutedForeground }]}>{b.name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         {/* Status filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {FILTERS.map((item) => {
-            const active = filter === item.value;
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {STATUS_FILTERS.map((item) => {
+            const active = statusFilter === item.value;
             const count = statusCounts[item.value] ?? 0;
-            const isFailedFilter = item.value === "water_test_failed";
+            const isDanger = item.value === "water_test_failed";
             return (
               <Pressable
                 key={item.value}
-                onPress={() => setFilter(item.value)}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: active
-                      ? isFailedFilter ? colors.destructive : colors.primary
-                      : colors.muted,
-                    borderColor: active
-                      ? isFailedFilter ? colors.destructive : colors.primary
-                      : isFailedFilter && count > 0 ? colors.destructive + "60" : colors.border,
-                  },
-                ]}
+                onPress={() => setStatusFilter(item.value)}
+                style={[styles.chip, {
+                  backgroundColor: active ? (isDanger ? colors.destructive : colors.primary) : colors.muted,
+                  borderColor: active ? (isDanger ? colors.destructive : colors.primary) : isDanger && count > 0 ? colors.destructive + "60" : colors.border,
+                }]}
               >
-                <Text style={[
-                  styles.filterLabel,
-                  { color: active ? "#fff" : isFailedFilter && count > 0 ? colors.destructive : colors.mutedForeground },
-                ]}>
+                <Text style={[styles.chipText, { color: active ? "#fff" : isDanger && count > 0 ? colors.destructive : colors.mutedForeground }]}>
                   {item.label}
                 </Text>
                 {count > 0 && (
-                  <View style={[
-                    styles.filterCount,
-                    { backgroundColor: active ? "rgba(255,255,255,0.25)" : colors.border },
-                  ]}>
-                    <Text style={[styles.filterCountText, { color: active ? "#fff" : colors.mutedForeground }]}>
-                      {count}
-                    </Text>
+                  <View style={[styles.chipCount, { backgroundColor: active ? "rgba(255,255,255,0.25)" : colors.border }]}>
+                    <Text style={[styles.chipCountText, { color: active ? "#fff" : colors.mutedForeground }]}>{count}</Text>
                   </View>
                 )}
               </Pressable>
@@ -173,13 +215,35 @@ export default function AllRecordsScreen() {
         </ScrollView>
       </View>
 
+      {/* Summary stats bar */}
+      {filtered.length > 0 && (
+        <View style={[styles.summaryBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <SummaryStat icon="check-circle" value={summaryStats.completed} label="Tamam" color={colors.success} colors={colors} />
+          <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+          <SummaryStat icon="activity" value={summaryStats.active} label="Aktif" color={colors.primary} colors={colors} />
+          <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+          <SummaryStat icon="alert-triangle" value={summaryStats.failed} label="Başarısız" color={summaryStats.failed > 0 ? colors.destructive : colors.mutedForeground} colors={colors} />
+          <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+          <SummaryStat icon="camera" value={summaryStats.photos} label="Fotoğraf" color={colors.mutedForeground} colors={colors} />
+        </View>
+      )}
+
       {filtered.length === 0 ? (
         <View style={styles.empty}>
-          <Feather name="inbox" size={36} color={colors.mutedForeground} />
+          <Feather name="inbox" size={40} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Kayıt bulunamadı</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            Farklı filtre veya arama deneyin
+            Filtre veya arama kriterlerini değiştirin
           </Text>
+          {(statusFilter !== "all" || brandFilter !== "all" || dateRange !== "all" || search) && (
+            <Pressable
+              onPress={() => { setStatusFilter("all"); setBrandFilter("all"); setDateRange("all"); setSearch(""); }}
+              style={[styles.clearBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30" }]}
+            >
+              <Feather name="x-circle" size={14} color={colors.primary} />
+              <Text style={[styles.clearBtnText, { color: colors.primary }]}>Filtreleri Temizle</Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <FlatList
@@ -194,6 +258,16 @@ export default function AllRecordsScreen() {
   );
 }
 
+function SummaryStat({ icon, value, label, color, colors }: { icon: any; value: number; label: string; color: string; colors: any }) {
+  return (
+    <View style={styles.summaryStatItem}>
+      <Feather name={icon} size={13} color={color} />
+      <Text style={[styles.summaryStatValue, { color }]}>{value}</Text>
+      <Text style={[styles.summaryStatLabel, { color: colors.mutedForeground }]}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
@@ -202,28 +276,28 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 2 },
   headerTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
-  headerSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 1 },
-  controls: { paddingHorizontal: 16, paddingVertical: 12, gap: 10, borderBottomWidth: 1 },
+  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  controls: { borderBottomWidth: 1, paddingBottom: 6 },
   searchBar: {
     flexDirection: "row", alignItems: "center", borderRadius: 12,
-    borderWidth: 1, paddingHorizontal: 12, height: 44, gap: 8,
+    borderWidth: 1, paddingHorizontal: 12, height: 44, gap: 8, marginHorizontal: 16, marginTop: 12,
   },
   searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", height: 44 },
-  sortRow: { gap: 8, paddingVertical: 2 },
-  sortChip: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1,
-  },
-  sortChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  filterRow: { paddingVertical: 2, gap: 8 },
-  filterChip: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1,
-  },
-  filterLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  filterCount: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
-  filterCountText: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  chipRow: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, flexDirection: "row", alignItems: "center" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  chipCount: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 8 },
+  chipCountText: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  chipDivider: { width: 1, height: 20 },
+  summaryBar: { flexDirection: "row", paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1 },
+  summaryStatItem: { flex: 1, alignItems: "center", gap: 2 },
+  summaryStatValue: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  summaryStatLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  summaryDivider: { width: 1, marginVertical: 2 },
   list: { paddingHorizontal: 16, paddingTop: 14 },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+  clearBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20, borderWidth: 1, marginTop: 4 },
+  clearBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });

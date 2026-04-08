@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -73,10 +73,13 @@ const PHOTO_TYPE_COLORS: Record<string, string> = {
 const SEVERITY_COLORS: Record<string, string> = { low: "#f59e0b", medium: "#f97316", high: "#ef4444" };
 const SEVERITY_LABELS: Record<string, string> = { low: "Düşük", medium: "Orta", high: "Yüksek" };
 
+const CAPTURE_ANGLES = ["Ön", "Sağ", "Sol", "Arka"];
+
 type CaptureStep = {
   label: string;
   hint: string;
   photoType: PhotoType;
+  angle?: string;
   uri?: string;
 };
 
@@ -135,40 +138,6 @@ export default function AssemblyDetailScreen() {
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoRecord | null>(null);
   const [captureFlow, setCaptureFlow] = useState<CaptureFlow>(null);
   const [countdown, setCountdown] = useState<string>("");
-  const autoLaunchPending = useRef(false);
-
-  // Auto-open camera when a capture step begins (on mobile)
-  useEffect(() => {
-    if (!captureFlow) {
-      autoLaunchPending.current = false;
-      return;
-    }
-    const currentStep = captureFlow.steps[captureFlow.currentIdx];
-    if (currentStep?.uri) return;
-    if (autoLaunchPending.current) return;
-    if (Platform.OS === "web") return;
-
-    autoLaunchPending.current = true;
-    (async () => {
-      try {
-        const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return;
-        const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false });
-        if (!result.canceled && result.assets.length > 0) {
-          const uri = result.assets[0].uri;
-          setCaptureFlow((prev) => {
-            if (!prev) return null;
-            const updatedSteps = prev.steps.map((s, i) =>
-              i === prev.currentIdx ? { ...s, uri } : s
-            );
-            return { ...prev, steps: updatedSteps };
-          });
-        }
-      } finally {
-        autoLaunchPending.current = false;
-      }
-    })();
-  }, [captureFlow?.currentIdx, captureFlow !== null]);
 
   // 4-hour countdown
   useEffect(() => {
@@ -251,6 +220,7 @@ export default function AssemblyDetailScreen() {
           uri: s.uri!,
           type: s.photoType,
           timestamp: now,
+          angle: s.angle,
         }));
       const updatedPhotoList = [...assembly.photos, ...newPhotos];
       const extraUpdates = captureFlow.extraUpdates ?? {};
@@ -276,12 +246,22 @@ export default function AssemblyDetailScreen() {
     const steps: CaptureStep[] =
       stage === "cutting"
         ? [
-            { label: "Kesim Öncesi Fotoğraf", hint: "Camı kesmeden önceki durumu kaydedin", photoType: "cutting_before" },
-            { label: "Kesim Sonrası Fotoğraf", hint: "Camı kestikten sonraki durumu kaydedin", photoType: "cutting_after" },
+            { label: "Kesim Öncesi", hint: "Camı kesmeden önceki durumu kaydedin (genel görünüm)", photoType: "cutting_before" },
+            ...CAPTURE_ANGLES.map((angle) => ({
+              label: `Kesim Sonrası · ${angle}`,
+              hint: `Kesim tamamlandıktan sonra ${angle.toLowerCase()} açıdan çekin`,
+              photoType: "cutting_after" as PhotoType,
+              angle,
+            })),
           ]
         : [
-            { label: "Montaj Öncesi Fotoğraf", hint: "Montaja başlamadan önceki durumu kaydedin", photoType: "installation_before" },
-            { label: "Montaj Sonrası Fotoğraf", hint: "Montajı tamamladıktan sonraki durumu kaydedin", photoType: "installation_after" },
+            { label: "Montaj Öncesi", hint: "Montaja başlamadan önceki durumu kaydedin (genel görünüm)", photoType: "installation_before" as PhotoType },
+            ...CAPTURE_ANGLES.map((angle) => ({
+              label: `Montaj Sonrası · ${angle}`,
+              hint: `Montaj tamamlandıktan sonra ${angle.toLowerCase()} açıdan çekin`,
+              photoType: "installation_after" as PhotoType,
+              angle,
+            })),
           ];
     setCaptureFlow({ steps, currentIdx: 0, pendingStatus, extraUpdates });
   };
@@ -806,7 +786,11 @@ export default function AssemblyDetailScreen() {
                 <Pressable key={photo.id} style={styles.photoThumb} onPress={() => setSelectedPhoto(photo)}>
                   <Image source={{ uri: photo.uri }} style={styles.photoImg} />
                   <View style={[styles.photoTypePill, { backgroundColor: PHOTO_TYPE_COLORS[photo.type] ?? "#6366f1" }]}>
-                    <Text style={styles.photoTypePillText}>{PHOTO_TYPE_LABELS[photo.type] ?? photo.type}</Text>
+                    <Text style={styles.photoTypePillText}>
+                      {photo.angle
+                        ? `${(PHOTO_TYPE_LABELS[photo.type] ?? photo.type).split(" ")[1] ?? PHOTO_TYPE_LABELS[photo.type]} · ${photo.angle}`
+                        : PHOTO_TYPE_LABELS[photo.type] ?? photo.type}
+                    </Text>
                   </View>
                 </Pressable>
               ))}
@@ -899,106 +883,110 @@ export default function AssemblyDetailScreen() {
       </ScrollView>
 
       {/* --- Capture Flow Overlay --- */}
-      {captureFlow && (
-        <View style={[styles.captureOverlay, { backgroundColor: colors.background }]}>
-          <View style={[styles.captureHeader, { borderBottomColor: colors.border }]}>
-            <Pressable onPress={() => setCaptureFlow(null)} style={styles.captureClose}>
-              <Feather name="x" size={22} color={colors.foreground} />
-            </Pressable>
-            <Text style={[styles.captureHeaderTitle, { color: colors.foreground }]}>Süreç Fotoğrafı</Text>
-            <Text style={[styles.captureStepLabel, { color: colors.mutedForeground }]}>
-              {captureFlow.currentIdx + 1}/{captureFlow.steps.length}
-            </Text>
-          </View>
-
-          <View style={styles.captureBody}>
-            {/* Step dots */}
-            <View style={styles.captureProgressRow}>
-              {captureFlow.steps.map((s, i) => (
-                <View key={i} style={[styles.captureProgressDot, {
-                  backgroundColor: i < captureFlow.currentIdx
-                    ? colors.success
-                    : i === captureFlow.currentIdx
-                    ? colors.primary
-                    : colors.border,
-                  width: i === captureFlow.currentIdx ? 24 : 10,
-                }]} />
-              ))}
+      {captureFlow && (() => {
+        const step = captureFlow.steps[captureFlow.currentIdx];
+        const isLast = captureFlow.currentIdx === captureFlow.steps.length - 1;
+        const doneCount = captureFlow.steps.filter((s) => s.uri).length;
+        return (
+          <View style={[styles.captureOverlay, { backgroundColor: colors.background }]}>
+            {/* Header */}
+            <View style={[styles.captureHeader, { borderBottomColor: colors.border }]}>
+              <Pressable onPress={() => setCaptureFlow(null)} style={styles.captureClose}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </Pressable>
+              <View style={{ flex: 1, alignItems: "center" }}>
+                <Text style={[styles.captureHeaderTitle, { color: colors.foreground }]}>Süreç Fotoğrafı</Text>
+                <Text style={[styles.captureStepLabel, { color: colors.mutedForeground }]}>
+                  Adım {captureFlow.currentIdx + 1} / {captureFlow.steps.length}
+                </Text>
+              </View>
+              <View style={{ width: 30 }} />
             </View>
 
-            <Text style={[styles.captureTitle, { color: colors.foreground }]}>
-              {captureFlow.steps[captureFlow.currentIdx].label}
-            </Text>
-            <Text style={[styles.captureHint, { color: colors.mutedForeground }]}>
-              {captureFlow.steps[captureFlow.currentIdx].hint}
-            </Text>
+            <View style={styles.captureBody}>
+              {/* Step progress dots */}
+              <View style={styles.captureProgressRow}>
+                {captureFlow.steps.map((s, i) => (
+                  <View key={i} style={[styles.captureProgressDot, {
+                    backgroundColor: s.uri
+                      ? colors.success
+                      : i === captureFlow.currentIdx
+                      ? colors.primary
+                      : colors.border,
+                    width: i === captureFlow.currentIdx ? 28 : 10,
+                  }]} />
+                ))}
+              </View>
 
-            {captureFlow.steps[captureFlow.currentIdx].uri ? (
-              <View style={styles.capturePreviewWrap}>
-                <Image
-                  source={{ uri: captureFlow.steps[captureFlow.currentIdx].uri }}
-                  style={styles.capturePreview}
-                  resizeMode="cover"
-                />
-                <View style={[styles.capturePreviewBadge, { backgroundColor: colors.success }]}>
-                  <Feather name="check" size={12} color="#fff" />
-                  <Text style={styles.capturePreviewBadgeText}>Fotoğraf Alındı</Text>
+              {/* Angle label badge */}
+              {step.angle && (
+                <View style={[styles.captureAngleBadge, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }]}>
+                  <Feather name="compass" size={13} color={colors.primary} />
+                  <Text style={[styles.captureAngleText, { color: colors.primary }]}>{step.angle} Taraf</Text>
                 </View>
+              )}
+
+              <Text style={[styles.captureTitle, { color: colors.foreground }]}>{step.label}</Text>
+              <Text style={[styles.captureHint, { color: colors.mutedForeground }]}>{step.hint}</Text>
+
+              {/* Photo preview or empty */}
+              {step.uri ? (
+                <View style={styles.capturePreviewWrap}>
+                  <Image source={{ uri: step.uri }} style={styles.capturePreview} resizeMode="cover" />
+                  <View style={[styles.capturePreviewBadge, { backgroundColor: colors.success }]}>
+                    <Feather name="check" size={12} color="#fff" />
+                    <Text style={styles.capturePreviewBadgeText}>Fotoğraf Alındı</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.captureEmptyImg, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                  <Feather name="camera" size={44} color={colors.mutedForeground} />
+                  <Text style={[styles.captureEmptyText, { color: colors.mutedForeground }]}>
+                    {step.angle ? `${step.angle} taraftan fotoğraf çekin` : "Fotoğraf çekin"}
+                  </Text>
+                </View>
+              )}
+
+              {/* Camera / retake buttons */}
+              <View style={styles.captureBtnRow}>
+                {Platform.OS !== "web" && (
+                  <Pressable
+                    onPress={() => handleCapturePhoto(false)}
+                    style={[styles.capturePrimaryBtn, { backgroundColor: step.uri ? colors.muted : colors.primary, borderWidth: step.uri ? 1 : 0, borderColor: colors.border }]}
+                  >
+                    <Feather name={step.uri ? "refresh-cw" : "camera"} size={20} color={step.uri ? colors.foreground : "#fff"} />
+                    <Text style={[styles.capturePrimaryBtnText, { color: step.uri ? colors.foreground : "#fff" }]}>
+                      {step.uri ? "Yeniden Çek" : "Kamera ile Çek"}
+                    </Text>
+                  </Pressable>
+                )}
                 <Pressable
-                  onPress={() => {
-                    const updatedSteps = captureFlow.steps.map((s, i) =>
-                      i === captureFlow.currentIdx ? { ...s, uri: undefined } : s
-                    );
-                    setCaptureFlow({ ...captureFlow, steps: updatedSteps });
-                  }}
-                  style={[styles.captureRetake, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  onPress={() => handleCapturePhoto(true)}
+                  style={[styles.captureSecondaryBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
                 >
-                  <Feather name="refresh-cw" size={14} color={colors.foreground} />
-                  <Text style={[styles.captureRetakeText, { color: colors.foreground }]}>Yeniden Çek</Text>
+                  <Feather name="image" size={18} color={colors.foreground} />
+                  <Text style={[styles.captureSecondaryBtnText, { color: colors.foreground }]}>Galeriden Seç</Text>
                 </Pressable>
               </View>
-            ) : (
-              <View style={[styles.captureEmptyImg, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Feather name="camera" size={40} color={colors.mutedForeground} />
-                <Text style={[styles.captureEmptyText, { color: colors.mutedForeground }]}>Fotoğraf bekleniyor</Text>
-              </View>
-            )}
 
-            <View style={styles.captureBtnRow}>
-              {Platform.OS !== "web" && (
+              {/* Next / finish button */}
+              {step.uri && (
                 <Pressable
-                  onPress={() => handleCapturePhoto(false)}
-                  style={[styles.capturePrimaryBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleCaptureAdvance}
+                  style={[styles.captureNextBtn, { backgroundColor: colors.success }]}
                 >
-                  <Feather name="camera" size={20} color="#fff" />
-                  <Text style={styles.capturePrimaryBtnText}>Kamera ile Çek</Text>
+                  <Feather name={isLast ? "check-circle" : "arrow-right"} size={18} color="#fff" />
+                  <Text style={styles.captureNextBtnText}>
+                    {isLast
+                      ? `Tamamla ve ${STATUS_LABELS[captureFlow.pendingStatus]}a Geç`
+                      : `Sonraki Açı → (${doneCount}/${captureFlow.steps.length - 1} sonrası tamamlandı)`}
+                  </Text>
                 </Pressable>
               )}
-              <Pressable
-                onPress={() => handleCapturePhoto(true)}
-                style={[styles.captureSecondaryBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-              >
-                <Feather name="image" size={18} color={colors.foreground} />
-                <Text style={[styles.captureSecondaryBtnText, { color: colors.foreground }]}>Galeriden Seç</Text>
-              </Pressable>
             </View>
-
-            {captureFlow.steps[captureFlow.currentIdx].uri && (
-              <Pressable
-                onPress={handleCaptureAdvance}
-                style={[styles.captureNextBtn, { backgroundColor: colors.success }]}
-              >
-                <Text style={styles.captureNextBtnText}>
-                  {captureFlow.currentIdx === captureFlow.steps.length - 1
-                    ? `Kaydet ve ${STATUS_LABELS[captureFlow.pendingStatus]}a Geç`
-                    : "Sonraki Fotoğraf →"}
-                </Text>
-                <Feather name="arrow-right" size={18} color="#fff" />
-              </Pressable>
-            )}
           </View>
-        </View>
-      )}
+        );
+      })()}
 
       {/* Full-screen photo viewer */}
       {selectedPhoto && (
@@ -1006,7 +994,10 @@ export default function AssemblyDetailScreen() {
           <Image source={{ uri: selectedPhoto.uri }} style={styles.photoViewerImg} resizeMode="contain" />
           <View style={styles.photoViewerMeta}>
             <View style={[styles.photoViewerPill, { backgroundColor: PHOTO_TYPE_COLORS[selectedPhoto.type] ?? "#6366f1" }]}>
-              <Text style={styles.photoTypePillText}>{PHOTO_TYPE_LABELS[selectedPhoto.type] ?? selectedPhoto.type}</Text>
+              <Text style={styles.photoTypePillText}>
+                {PHOTO_TYPE_LABELS[selectedPhoto.type] ?? selectedPhoto.type}
+                {selectedPhoto.angle ? ` · ${selectedPhoto.angle}` : ""}
+              </Text>
             </View>
             <Text style={styles.photoViewerTime}>{new Date(selectedPhoto.timestamp).toLocaleString("tr-TR")}</Text>
           </View>
@@ -1126,8 +1117,13 @@ const styles = StyleSheet.create({
   captureBody: { flex: 1, padding: 20, gap: 16 },
   captureProgressRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   captureProgressDot: { height: 8, borderRadius: 4 },
-  captureTitle: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  captureHint: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21, marginTop: -6 },
+  captureAngleBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1,
+  },
+  captureAngleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  captureTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  captureHint: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21, marginTop: -4 },
   capturePreviewWrap: { borderRadius: 16, overflow: "hidden", height: 220, position: "relative" },
   capturePreview: { width: "100%", height: "100%" },
   capturePreviewBadge: {

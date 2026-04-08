@@ -110,6 +110,7 @@ export interface PhotoRecord {
   type: PhotoType;
   timestamp: string;
   note?: string;
+  angle?: string;
 }
 
 export interface DefectRecord {

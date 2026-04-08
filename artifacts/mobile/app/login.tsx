@@ -74,7 +74,7 @@ export default function LoginScreen() {
             Cam Montaj Takip
           </Text>
           <Text style={[styles.appSubtitle, { color: colors.mutedForeground }]}>
-            ISRI · Fiat Ducato
+            ISRI · Çoklu Araç Takip
           </Text>
         </View>
 
