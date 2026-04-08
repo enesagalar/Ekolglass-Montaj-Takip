@@ -15,7 +15,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AssemblyCard } from "@/components/AssemblyCard";
-import { StatusBadge } from "@/components/StatusBadge";
 import { AssemblyStatus, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -29,6 +28,14 @@ const FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tamamlandı", value: "completed" },
 ];
 
+function isSameDay(date1: Date, date2: Date) {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+}
+
 export default function AssemblyListScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -39,21 +46,34 @@ export default function AssemblyListScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("tr-TR", {
+    day: "numeric", month: "long", year: "numeric",
+  });
+
+  const todayAssemblies = useMemo(
+    () => assemblies.filter((a) => isSameDay(new Date(a.createdAt), today) || isSameDay(new Date(a.updatedAt), today)),
+    [assemblies]
+  );
+
   const statusCounts = useMemo(() => {
-    const counts: Partial<Record<AssemblyStatus | "all", number>> = { all: assemblies.length };
-    assemblies.forEach((a) => {
+    const counts: Partial<Record<AssemblyStatus | "all", number>> = { all: todayAssemblies.length };
+    todayAssemblies.forEach((a) => {
       counts[a.status] = (counts[a.status] || 0) + 1;
     });
     return counts;
-  }, [assemblies]);
+  }, [todayAssemblies]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return assemblies
+    return todayAssemblies
       .filter((a) => {
         const matchStatus = filter === "all" || a.status === filter;
         const matchSearch =
-          !q || a.vin.toLowerCase().includes(q) || a.assignedTo.toLowerCase().includes(q);
+          !q ||
+          (a.vinLast5 ?? a.vin)?.toLowerCase().includes(q) ||
+          a.vin?.toLowerCase().includes(q) ||
+          a.assignedTo.toLowerCase().includes(q);
         return matchStatus && matchSearch;
       })
       .sort((a, b) => {
@@ -70,52 +90,79 @@ export default function AssemblyListScreen() {
         if (pa !== pb) return pa - pb;
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
-  }, [assemblies, filter, search]);
+  }, [todayAssemblies, filter, search]);
+
+  const urgentCount = todayAssemblies.filter((a) => a.status === "water_test_failed").length;
+  const waterTestPendingCount = todayAssemblies.filter((a) => a.status === "water_test" && a.waterTestCustomerApproval === "pending").length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View
         style={[
           styles.topBar,
-          {
-            paddingTop: topPad + 8,
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-          },
+          { paddingTop: topPad + 8, backgroundColor: colors.background, borderBottomColor: colors.border },
         ]}
       >
         <View style={styles.titleRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>
-              {role === "customer" ? "Araç Takip" : "Montaj Kayıtları"}
+              {role === "customer" ? "Araç Takip" : "Bugünkü İş"}
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {statusCounts.all} kayıt
-              {statusCounts["water_test_failed"] ? ` · ` : ""}
-              {statusCounts["water_test_failed"] ? (
-                `${statusCounts["water_test_failed"]} test başarısız`
-              ) : null}
+              {todayStr} · {todayAssemblies.length} kayıt
             </Text>
           </View>
-          {(role === "field" || role === "admin") && (
+
+          <View style={styles.titleActions}>
+            {/* All records */}
             <Pressable
-              onPress={async () => {
-                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                router.push("/new-assembly" as any);
-              }}
-              style={[styles.addBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push("/all-records" as any)}
+              style={[styles.iconBtn, { backgroundColor: colors.muted }]}
             >
-              <Feather name="plus" size={20} color="#fff" />
+              <Feather name="archive" size={18} color={colors.foreground} />
             </Pressable>
-          )}
+
+            {/* New assembly */}
+            {(role === "field" || role === "admin") && (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  router.push("/new-assembly" as any);
+                }}
+                style={[styles.addBtn, { backgroundColor: colors.primary }]}
+              >
+                <Feather name="plus" size={20} color="#fff" />
+              </Pressable>
+            )}
+          </View>
         </View>
 
-        <View
-          style={[
-            styles.searchBar,
-            { backgroundColor: colors.muted, borderColor: colors.border },
-          ]}
-        >
+        {/* Alert banners */}
+        {urgentCount > 0 && role !== "customer" && (
+          <Pressable
+            onPress={() => setFilter("water_test_failed")}
+            style={[styles.alertBanner, { backgroundColor: colors.destructive + "12", borderColor: colors.destructive + "30" }]}
+          >
+            <Feather name="alert-triangle" size={14} color={colors.destructive} />
+            <Text style={[styles.alertText, { color: colors.destructive }]}>
+              {urgentCount} kayıt su testinden kaldı — hemen ilgilenin
+            </Text>
+          </Pressable>
+        )}
+
+        {waterTestPendingCount > 0 && role === "customer" && (
+          <Pressable
+            onPress={() => setFilter("water_test")}
+            style={[styles.alertBanner, { backgroundColor: colors.warning + "12", borderColor: colors.warning + "30" }]}
+          >
+            <Feather name="clock" size={14} color={colors.warning} />
+            <Text style={[styles.alertText, { color: colors.warning }]}>
+              {waterTestPendingCount} araç su testi onayınızı bekliyor
+            </Text>
+          </Pressable>
+        )}
+
+        <View style={[styles.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <Feather name="search" size={16} color={colors.mutedForeground} />
           <TextInput
             value={search}
@@ -131,11 +178,7 @@ export default function AssemblyListScreen() {
           )}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {FILTERS.map((item) => {
             const active = filter === item.value;
             const count = statusCounts[item.value] ?? 0;
@@ -148,59 +191,28 @@ export default function AssemblyListScreen() {
                   styles.filterChip,
                   {
                     backgroundColor: active
-                      ? isFailedFilter
-                        ? colors.destructive
-                        : colors.primary
+                      ? isFailedFilter ? colors.destructive : colors.primary
                       : colors.muted,
                     borderColor: active
-                      ? isFailedFilter
-                        ? colors.destructive
-                        : colors.primary
+                      ? isFailedFilter ? colors.destructive : colors.primary
                       : isFailedFilter && count > 0
                       ? colors.destructive + "60"
                       : colors.border,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.filterLabel,
-                    {
-                      color: active
-                        ? "#fff"
-                        : isFailedFilter && count > 0
-                        ? colors.destructive
-                        : colors.mutedForeground,
-                    },
-                  ]}
-                >
+                <Text style={[
+                  styles.filterLabel,
+                  { color: active ? "#fff" : isFailedFilter && count > 0 ? colors.destructive : colors.mutedForeground },
+                ]}>
                   {item.label}
                 </Text>
-                {item.value !== "all" && count > 0 && (
-                  <View
-                    style={[
-                      styles.filterCount,
-                      {
-                        backgroundColor: active
-                          ? "rgba(255,255,255,0.3)"
-                          : isFailedFilter
-                          ? colors.destructive + "20"
-                          : colors.primary + "20",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.filterCountText,
-                        {
-                          color: active
-                            ? "#fff"
-                            : isFailedFilter
-                            ? colors.destructive
-                            : colors.primary,
-                        },
-                      ]}
-                    >
+                {count > 0 && (
+                  <View style={[
+                    styles.filterCount,
+                    { backgroundColor: active ? "rgba(255,255,255,0.25)" : isFailedFilter && count > 0 ? colors.destructive + "20" : colors.border },
+                  ]}>
+                    <Text style={[styles.filterCountText, { color: active ? "#fff" : isFailedFilter && count > 0 ? colors.destructive : colors.mutedForeground }]}>
                       {count}
                     </Text>
                   </View>
@@ -211,57 +223,79 @@ export default function AssemblyListScreen() {
         </ScrollView>
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(a) => a.id}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad }]}
-        renderItem={({ item }) => <AssemblyCard assembly={item} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Feather name="inbox" size={40} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              {search ? "Arama sonucu bulunamadı" : "Kayıt bulunamadı"}
-            </Text>
+      {filtered.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
+            <Feather name="sun" size={32} color={colors.mutedForeground} />
           </View>
-        }
-        scrollEnabled
-        showsVerticalScrollIndicator={false}
-      />
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            {search || filter !== "all" ? "Kayıt bulunamadı" : "Bugün henüz kayıt yok"}
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            {search || filter !== "all"
+              ? "Farklı filtre veya arama deneyin"
+              : role !== "customer"
+              ? "Yeni montaj kaydı oluşturmak için + butonuna basın"
+              : "Bugün planlanmış araç bulunmuyor"}
+          </Text>
+          {!search && filter === "all" && (
+            <Pressable
+              onPress={() => router.push("/all-records" as any)}
+              style={[styles.viewAllBtn, { borderColor: colors.border }]}
+            >
+              <Feather name="archive" size={15} color={colors.mutedForeground} />
+              <Text style={[styles.viewAllText, { color: colors.mutedForeground }]}>Geçmiş Kayıtları Gör</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(a) => a.id}
+          renderItem={({ item }) => <AssemblyCard assembly={item} />}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomPad }]}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: { paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 1, gap: 10 },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  topBar: { paddingHorizontal: 20, gap: 12, paddingBottom: 12, borderBottomWidth: 1 },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
-  subtitle: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  titleActions: { flexDirection: "row", gap: 8, marginTop: 4 },
+  iconBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   addBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    height: 42,
-    gap: 8,
+  alertBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", height: 42 },
-  filterRow: { gap: 8, paddingRight: 4, paddingBottom: 2 },
+  alertText: { fontSize: 13, fontFamily: "Inter_600SemiBold", flex: 1 },
+  searchBar: {
+    flexDirection: "row", alignItems: "center", borderRadius: 12,
+    borderWidth: 1, paddingHorizontal: 12, height: 44, gap: 8,
+  },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", height: 44 },
+  filterRow: { paddingVertical: 2, gap: 8 },
   filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 100,
-    borderWidth: 1,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1,
   },
   filterLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  filterCount: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6 },
-  filterCountText: { fontSize: 10, fontFamily: "Inter_700Bold" },
-  list: { padding: 14 },
-  empty: { alignItems: "center", paddingTop: 80, gap: 12 },
-  emptyText: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  filterCount: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
+  filterCountText: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  list: { paddingHorizontal: 16, paddingTop: 14 },
+  emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 14 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  viewAllBtn: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, borderWidth: 1, marginTop: 4,
+  },
+  viewAllText: { fontSize: 14, fontFamily: "Inter_500Medium" },
 });

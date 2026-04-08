@@ -25,6 +25,7 @@ export interface GlassProduct {
   id: string;
   name: string;
   code: string;
+  suffix: string;
   stock: number;
 }
 
@@ -36,16 +37,41 @@ export interface Consumable {
   category: "chemical" | "tool" | "other";
 }
 
-export const GLASS_PRODUCTS: GlassProduct[] = [
-  { id: "g1", name: "SAĞ 1. YAN CAM", code: "DCT-IS R1", stock: 0 },
-  { id: "g2", name: "SAĞ 2. YAN CAM", code: "DCT-IS R2", stock: 0 },
-  { id: "g3", name: "SAĞ 3. YAN CAM", code: "DCT-IS R3", stock: 0 },
-  { id: "g4", name: "SOL 1. YAN CAM", code: "DCT-IS L1", stock: 0 },
-  { id: "g5", name: "SOL 2. YAN CAM", code: "DCT-IS L2", stock: 0 },
-  { id: "g6", name: "SOL 3. YAN CAM", code: "DCT-IS L3", stock: 0 },
-  { id: "g7", name: "SAĞ ARKA KAPAK", code: "DCT-IS B", stock: 0 },
-  { id: "g8", name: "SOL ARKA KAPAK", code: "DCT-IS B", stock: 0 },
+export interface VehicleBrand {
+  id: string;
+  name: string;
+  prefix: string;
+  icon: string;
+}
+
+export const VEHICLE_BRANDS: VehicleBrand[] = [
+  { id: "fiat-ducato", name: "Fiat Ducato", prefix: "DCT", icon: "truck" },
+  { id: "opel-movano", name: "Opel Movano", prefix: "MNV", icon: "truck" },
+  { id: "peugeot-boxer", name: "Peugeot Boxer", prefix: "BXR", icon: "truck" },
+  { id: "citroen-jumpy", name: "Citroen Jumpy", prefix: "JMP", icon: "truck" },
 ];
+
+export const GLASS_POSITIONS: GlassProduct[] = [
+  { id: "g1", name: "SAĞ 1. YAN CAM", code: "DCT-IS R1", suffix: "R1", stock: 0 },
+  { id: "g2", name: "SAĞ 2. YAN CAM", code: "DCT-IS R2", suffix: "R2", stock: 0 },
+  { id: "g3", name: "SAĞ 3. YAN CAM", code: "DCT-IS R3", suffix: "R3", stock: 0 },
+  { id: "g4", name: "SOL 1. YAN CAM", code: "DCT-IS L1", suffix: "L1", stock: 0 },
+  { id: "g5", name: "SOL 2. YAN CAM", code: "DCT-IS L2", suffix: "L2", stock: 0 },
+  { id: "g6", name: "SOL 3. YAN CAM", code: "DCT-IS L3", suffix: "L3", stock: 0 },
+  { id: "g7", name: "SAĞ ARKA KAPAK", code: "DCT-IS B1", suffix: "B1", stock: 0 },
+  { id: "g8", name: "SOL ARKA KAPAK", code: "DCT-IS B2", suffix: "B2", stock: 0 },
+];
+
+export const GLASS_PRODUCTS = GLASS_POSITIONS;
+
+export function getBrandGlassCode(vehicleModel: string, suffix: string): string {
+  const brand = VEHICLE_BRANDS.find((b) => b.id === vehicleModel) ?? VEHICLE_BRANDS[0];
+  return `${brand.prefix}-IS ${suffix}`;
+}
+
+export function getBrandName(vehicleModel: string): string {
+  return VEHICLE_BRANDS.find((b) => b.id === vehicleModel)?.name ?? "Fiat Ducato";
+}
 
 export const DEFAULT_CONSUMABLES: Consumable[] = [
   { id: "c1", name: "Silikon", unit: "adet", stock: 0, category: "chemical" },
@@ -68,10 +94,21 @@ export const DEFAULT_USERS: AppUser[] = [
 export const CUSTOMER_NAME = "ISRI";
 export const VEHICLE_MODEL = "Fiat Ducato";
 
+export type PhotoType =
+  | "approval_doc"
+  | "vin"
+  | "cutting_before"
+  | "cutting_after"
+  | "installation_before"
+  | "installation_after"
+  | "water_test"
+  | "defect"
+  | "other";
+
 export interface PhotoRecord {
   id: string;
   uri: string;
-  type: "vin" | "before" | "after" | "defect" | "other";
+  type: PhotoType;
   timestamp: string;
   note?: string;
 }
@@ -86,19 +123,25 @@ export interface DefectRecord {
 
 export interface AssemblyRecord {
   id: string;
+  vehicleModel: string;
   vin: string;
+  vinLast5: string;
+  approvalDocPhotoUri?: string;
   vinPhotoUri?: string;
   glassProductIds: string[];
   assignedTo: string;
   assignedToUserId?: string;
   status: AssemblyStatus;
+  statusTimestamps: Partial<Record<AssemblyStatus, string>>;
   waterTestResult?: "passed" | "failed";
+  waterTestCustomerApproval?: "pending" | "approved" | "rejected";
   photos: PhotoRecord[];
   defects: DefectRecord[];
   notes: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+  installationCompletedAt?: string;
   activityLog?: ActivityLogEntry[];
 }
 
@@ -136,50 +179,101 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = "@cam_montaj_assemblies_v3";
-const STOCK_KEY = "@cam_montaj_stock_v3";
-const CONSUMABLES_KEY = "@cam_montaj_consumables_v1";
+const STORAGE_KEY = "@cam_montaj_assemblies_v5";
+const STOCK_KEY = "@cam_montaj_stock_v5";
+const CONSUMABLES_KEY = "@cam_montaj_consumables_v2";
 const USERS_KEY = "@cam_montaj_users_v1";
 const SESSION_KEY = "@cam_montaj_session_v1";
 
+const now = new Date();
+const todayStart = new Date(now); todayStart.setHours(8, 0, 0, 0);
+
 const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
-    id: "asm-001", vin: "VF3YHWMFB13459001", glassProductIds: ["g1", "g2"],
+    id: "asm-001",
+    vehicleModel: "fiat-ducato",
+    vin: "VF3YHWMFB13459001", vinLast5: "59001",
+    glassProductIds: ["g1", "g2"],
     assignedTo: "Mehmet Demir", assignedToUserId: "u-mehmet",
-    status: "installation", photos: [], defects: [],
+    status: "installation",
+    statusTimestamps: {
+      cutting: new Date(Date.now() - 2 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 3600000).toISOString(),
+    },
+    photos: [], defects: [],
     notes: "Sağ taraf yan camlar değişimi.",
     createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 1800000).toISOString(),
   },
   {
-    id: "asm-002", vin: "VF3YHWMFB13459002", glassProductIds: ["g4"],
+    id: "asm-002",
+    vehicleModel: "opel-movano",
+    vin: "VF3YHWMFB13459002", vinLast5: "59002",
+    glassProductIds: ["g4"],
     assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
-    status: "water_test", photos: [],
+    status: "water_test",
+    statusTimestamps: {
+      cutting: new Date(Date.now() - 6 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 5 * 3600000).toISOString(),
+      installation_done: new Date(Date.now() - 4.5 * 3600000).toISOString(),
+      water_test: new Date(Date.now() - 4 * 3600000).toISOString(),
+    },
+    installationCompletedAt: new Date(Date.now() - 4.5 * 3600000).toISOString(),
+    waterTestCustomerApproval: "pending",
+    photos: [],
     defects: [{ id: "def-001", description: "Sol köşede küçük çizik", severity: "low", resolved: true, timestamp: new Date(Date.now() - 3600000).toISOString() }],
-    notes: "Sol 1. yan cam.", createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
+    notes: "Sol 1. yan cam.",
+    createdAt: new Date(Date.now() - 6 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 2700000).toISOString(),
   },
   {
-    id: "asm-003", vin: "VF3YHWMFB13459003", glassProductIds: ["g7", "g8"],
+    id: "asm-003",
+    vehicleModel: "peugeot-boxer",
+    vin: "VF3YHWMFB13459003", vinLast5: "59003",
+    glassProductIds: ["g7", "g8"],
     assignedTo: "Hasan Yıldız", assignedToUserId: "u-hasan",
-    status: "completed", photos: [], defects: [],
+    status: "completed",
+    statusTimestamps: {
+      cutting: new Date(Date.now() - 24 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 22 * 3600000).toISOString(),
+      installation_done: new Date(Date.now() - 20 * 3600000).toISOString(),
+      water_test: new Date(Date.now() - 12 * 3600000).toISOString(),
+      completed: new Date(Date.now() - 6 * 3600000).toISOString(),
+    },
+    photos: [], defects: [],
     notes: "", waterTestResult: "passed",
     createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
     completedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
   },
   {
-    id: "asm-004", vin: "VF3YHWMFB13459004", glassProductIds: ["g2"],
+    id: "asm-004",
+    vehicleModel: "fiat-ducato",
+    vin: "VF3YHWMFB13459004", vinLast5: "59004",
+    glassProductIds: ["g2"],
     assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
-    status: "cutting", photos: [], defects: [],
+    status: "cutting",
+    statusTimestamps: { cutting: new Date(Date.now() - 1800000).toISOString() },
+    photos: [], defects: [],
     notes: "Sağ 2. yan cam.",
     createdAt: new Date(Date.now() - 1800000).toISOString(),
     updatedAt: new Date(Date.now() - 1800000).toISOString(),
   },
   {
-    id: "asm-005", vin: "VF3YHWMFB13459005", glassProductIds: ["g3", "g6"],
+    id: "asm-005",
+    vehicleModel: "citroen-jumpy",
+    vin: "VF3YHWMFB13459005", vinLast5: "59005",
+    glassProductIds: ["g3", "g6"],
     assignedTo: "Murat Özkan", assignedToUserId: "u-murat",
-    status: "water_test_failed", photos: [],
+    status: "water_test_failed",
+    statusTimestamps: {
+      cutting: new Date(Date.now() - 8 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 7 * 3600000).toISOString(),
+      installation_done: new Date(Date.now() - 5 * 3600000).toISOString(),
+      water_test: new Date(Date.now() - 3 * 3600000).toISOString(),
+      water_test_failed: new Date(Date.now() - 2 * 3600000).toISOString(),
+    },
+    photos: [],
     defects: [{ id: "def-002", description: "Sızdırmazlık yetersiz", severity: "high", resolved: false, timestamp: new Date(Date.now() - 2 * 3600000).toISOString() }],
     notes: "Su testinden kaldı.",
     createdAt: new Date(Date.now() - 8 * 3600000).toISOString(),
@@ -191,7 +285,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
-  const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_PRODUCTS);
+  const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_POSITIONS);
   const [consumables, setConsumables] = useState<Consumable[]>(DEFAULT_CONSUMABLES);
 
   useEffect(() => {
@@ -216,20 +310,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setUsers(userList);
 
         if (savedSession) {
-          const userId = savedSession;
-          const found = userList.find((u) => u.id === userId && u.active);
+          const found = userList.find((u) => u.id === savedSession && u.active);
           if (found) setCurrentUser(found);
         }
 
-        if (savedAssemblies) setAssemblies(JSON.parse(savedAssemblies));
-        else {
+        if (savedAssemblies) {
+          const parsed: AssemblyRecord[] = JSON.parse(savedAssemblies);
+          setAssemblies(parsed.map((a) => ({
+            vehicleModel: "fiat-ducato",
+            vinLast5: a.vin?.slice(-5) ?? "",
+            statusTimestamps: {},
+            waterTestCustomerApproval: undefined,
+            installationCompletedAt: undefined,
+            ...a,
+          })));
+        } else {
           setAssemblies(DEMO_ASSEMBLIES);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_ASSEMBLIES));
         }
 
-        if (savedStock) setGlassStock(JSON.parse(savedStock));
-        else {
-          const init = GLASS_PRODUCTS.map((g) => ({ ...g, stock: 8 }));
+        if (savedStock) {
+          const parsed: GlassProduct[] = JSON.parse(savedStock);
+          setGlassStock(parsed.map((g) => {
+            const pos = GLASS_POSITIONS.find((p) => p.id === g.id);
+            return { ...g, suffix: pos?.suffix ?? g.code.split(" ").pop() ?? "R1" };
+          }));
+        } else {
+          const init = GLASS_POSITIONS.map((g) => ({ ...g, stock: 8 }));
           setGlassStock(init);
           await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(init));
         }
@@ -240,7 +347,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setConsumables(init);
           await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(init));
         }
-      } catch (e) {
+      } catch {
         setAssemblies(DEMO_ASSEMBLIES);
         setUsers(DEFAULT_USERS);
       }
@@ -305,8 +412,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addAssembly = useCallback(
     (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => {
       const now = new Date().toISOString();
-      const logEntry: ActivityLogEntry = { id: `log-${Date.now()}`, action: "Kayıt oluşturuldu", userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now };
-      const newRecord: AssemblyRecord = { ...data, id: `asm-${Date.now()}`, createdAt: now, updatedAt: now, activityLog: [logEntry] };
+      const logEntry: ActivityLogEntry = {
+        id: `log-${Date.now()}`, action: "Kayıt oluşturuldu",
+        userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now,
+      };
+      const newRecord: AssemblyRecord = {
+        ...data,
+        id: `asm-${Date.now()}`, createdAt: now, updatedAt: now,
+        statusTimestamps: { cutting: now, ...data.statusTimestamps },
+        activityLog: [logEntry],
+      };
       saveAssemblies([newRecord, ...assemblies]);
       const updatedStock = glassStock.map((g) =>
         data.glassProductIds.includes(g.id) ? { ...g, stock: Math.max(0, g.stock - 1) } : g
@@ -325,7 +440,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const log = logAction
           ? [...(a.activityLog ?? []), { id: `log-${Date.now()}`, action: logAction, userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now }]
           : a.activityLog;
-        return { ...a, ...updates, updatedAt: now, activityLog: log };
+        const statusTimestamps = { ...a.statusTimestamps };
+        if (updates.status && updates.status !== a.status) {
+          statusTimestamps[updates.status] = now;
+        }
+        return { ...a, ...updates, updatedAt: now, activityLog: log, statusTimestamps };
       });
       saveAssemblies(updated);
     },
