@@ -20,7 +20,9 @@ import { useColors } from "@/hooks/useColors";
 
 const FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tümü", value: "all" },
-  { label: "Beklemede", value: "cutting" },
+  { label: "Beklemede", value: "pending" },
+  { label: "Kesimde", value: "cutting" },
+  { label: "Kesim Tamam", value: "cutting_done" },
   { label: "Montajda", value: "installation" },
   { label: "Montaj Tamam", value: "installation_done" },
   { label: "Su Testi", value: "water_test" },
@@ -82,8 +84,10 @@ export default function AssemblyListScreen() {
           water_test: 1,
           installation_done: 2,
           installation: 3,
-          cutting: 4,
-          completed: 5,
+          cutting_done: 4,
+          cutting: 5,
+          pending: 6,
+          completed: 7,
         };
         const pa = priority[a.status] ?? 9;
         const pb = priority[b.status] ?? 9;

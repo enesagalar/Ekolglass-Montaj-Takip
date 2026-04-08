@@ -30,7 +30,9 @@ import {
 import { useColors } from "@/hooks/useColors";
 
 const STATUS_FLOW: AssemblyStatus[] = [
+  "pending",
   "cutting",
+  "cutting_done",
   "installation",
   "installation_done",
   "water_test",
@@ -38,7 +40,9 @@ const STATUS_FLOW: AssemblyStatus[] = [
 ];
 
 const STATUS_TIMELINE_LABELS: Partial<Record<AssemblyStatus, string>> = {
-  cutting: "Kayıt Açıldı",
+  pending: "Kayıt Oluşturuldu",
+  cutting: "Kesime Başlandı",
+  cutting_done: "Kesim Tamamlandı",
   installation: "Montaja Başlandı",
   installation_done: "Montaj Tamamlandı",
   water_test: "Su Testine Gönderildi",
@@ -164,6 +168,7 @@ export default function AssemblyDetailScreen() {
   const currentStatusIdx = STATUS_FLOW.indexOf(
     assembly.status === "water_test_failed" ? "water_test" : assembly.status
   );
+  // map water_test_failed to same visual index as water_test for progress bar
   const glassProducts = (assembly.glassProductIds ?? []).map((gid) => getGlassProduct(gid)).filter(Boolean);
   const openDefectCount = assembly.defects.filter((d) => !d.resolved).length;
   const brandName = getBrandName(assembly.vehicleModel ?? "fiat-ducato");
@@ -281,19 +286,36 @@ export default function AssemblyDetailScreen() {
     const next = getNextStatus(assembly.status);
     if (!next) return;
 
-    if (assembly.status === "cutting" && next === "installation") {
+    // pending → cutting: start cutting phase
+    if (assembly.status === "pending") {
+      updateAssembly(assembly.id, { status: "cutting" }, "Kesime başlandı");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+
+    // cutting → cutting_done: cutting finished
+    if (assembly.status === "cutting") {
+      updateAssembly(assembly.id, { status: "cutting_done" }, "Kesim tamamlandı");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+
+    // cutting_done → installation: capture 4 montaj öncesi photos
+    if (assembly.status === "cutting_done") {
       startCaptureFlow("before", "installation");
       return;
     }
 
-    if (assembly.status === "installation" && next === "installation_done") {
+    // installation → installation_done: capture 4 montaj sonrası photos
+    if (assembly.status === "installation") {
       startCaptureFlow("after", "installation_done", {
         installationCompletedAt: new Date().toISOString(),
       });
       return;
     }
 
-    if (assembly.status === "installation_done" && next === "water_test") {
+    // installation_done → water_test: confirm then send
+    if (assembly.status === "installation_done") {
       Alert.alert(
         "Su Testine Gönder",
         "Araç su testine gönderilecek. ISRI onayı bekleniyor olarak işaretlenecek.",
@@ -415,7 +437,7 @@ export default function AssemblyDetailScreen() {
 
   // Timeline: all statuses that have timestamps
   const timelineStatuses: AssemblyStatus[] = [
-    "cutting", "installation", "installation_done", "water_test", "water_test_failed", "completed"
+    "pending", "cutting", "cutting_done", "installation", "installation_done", "water_test", "water_test_failed", "completed"
   ];
   const timestampEntries = timelineStatuses
     .filter((s) => assembly.statusTimestamps?.[s])
@@ -426,7 +448,7 @@ export default function AssemblyDetailScreen() {
     }));
 
   const showWaterTestBlock = assembly.status === "water_test";
-  const showInstallationCountdown = !!assembly.installationCompletedAt && (isCustomer || isAdmin);
+  const showInstallationCountdown = !!assembly.installationCompletedAt && !isCustomer;
   const targetWaterTestMs = assembly.installationCompletedAt
     ? new Date(assembly.installationCompletedAt).getTime() + 4 * 3600000
     : 0;
@@ -526,25 +548,52 @@ export default function AssemblyDetailScreen() {
                       <Text style={[styles.customerApprovalTitle, { color: colors.foreground }]}>
                         Su Testi Sonucu
                       </Text>
-                      <Text style={[styles.customerApprovalHint, { color: colors.mutedForeground }]}>
-                        Aracın su testi sonucunu değerlendirin.
-                      </Text>
-                      <View style={styles.customerApprovalBtns}>
-                        <Pressable
-                          onPress={() => handleCustomerApproval(false)}
-                          style={[styles.customerBtn, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "50" }]}
-                        >
-                          <Feather name="x-circle" size={18} color={colors.destructive} />
-                          <Text style={[styles.customerBtnText, { color: colors.destructive }]}>Testten Kaldı</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleCustomerApproval(true)}
-                          style={[styles.customerBtn, { backgroundColor: colors.success + "15", borderColor: colors.success + "50" }]}
-                        >
-                          <Feather name="check-circle" size={18} color={colors.success} />
-                          <Text style={[styles.customerBtnText, { color: colors.success }]}>Testten Geçti</Text>
-                        </Pressable>
-                      </View>
+                      {!waterTestReady ? (
+                        <>
+                          <Text style={[styles.customerApprovalHint, { color: colors.mutedForeground }]}>
+                            Araç su test sürecinde. Onay butonu aktif olana kadar bekleniyor.
+                          </Text>
+                          <View style={[styles.countdownRow, { marginTop: 10 }]}>
+                            <Feather name="clock" size={18} color={colors.primary} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.countdownTitle, { color: colors.foreground }]}>Su Testi Geri Sayımı</Text>
+                              <Text style={[styles.countdownTime, { color: colors.primary }]}>{countdown} kaldı</Text>
+                            </View>
+                          </View>
+                          <View style={[styles.customerApprovalBtns, { marginTop: 10, opacity: 0.35 }]}>
+                            <View style={[styles.customerBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                              <Feather name="x-circle" size={18} color={colors.mutedForeground} />
+                              <Text style={[styles.customerBtnText, { color: colors.mutedForeground }]}>Testten Kaldı</Text>
+                            </View>
+                            <View style={[styles.customerBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                              <Feather name="check-circle" size={18} color={colors.mutedForeground} />
+                              <Text style={[styles.customerBtnText, { color: colors.mutedForeground }]}>Testten Geçti</Text>
+                            </View>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[styles.customerApprovalHint, { color: colors.mutedForeground }]}>
+                            Aracın su testi sonucunu değerlendirin.
+                          </Text>
+                          <View style={styles.customerApprovalBtns}>
+                            <Pressable
+                              onPress={() => handleCustomerApproval(false)}
+                              style={[styles.customerBtn, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "50" }]}
+                            >
+                              <Feather name="x-circle" size={18} color={colors.destructive} />
+                              <Text style={[styles.customerBtnText, { color: colors.destructive }]}>Testten Kaldı</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleCustomerApproval(true)}
+                              style={[styles.customerBtn, { backgroundColor: colors.success + "15", borderColor: colors.success + "50" }]}
+                            >
+                              <Feather name="check-circle" size={18} color={colors.success} />
+                              <Text style={[styles.customerBtnText, { color: colors.success }]}>Testten Geçti</Text>
+                            </Pressable>
+                          </View>
+                        </>
+                      )}
                     </>
                   ) : (
                     <View style={styles.approvalDone}>
@@ -584,35 +633,42 @@ export default function AssemblyDetailScreen() {
           )}
 
           {/* Advance button (field/admin, not water_test, not completed) */}
-          {canEdit && assembly.status !== "completed" && assembly.status !== "water_test" && (
-            <Pressable
-              onPress={handleAdvanceStatus}
-              style={({ pressed }) => [
-                styles.advanceBtn,
-                {
-                  backgroundColor:
-                    assembly.status === "water_test_failed"
-                      ? isAdmin ? colors.primary : colors.muted
-                      : colors.primary,
-                  opacity: pressed ? 0.85 : 1,
-                },
-              ]}
-            >
-              <Feather
-                name={assembly.status === "cutting" ? "play" : assembly.status === "installation" ? "check" : "arrow-right"}
-                size={18}
-                color={assembly.status === "water_test_failed" && !isAdmin ? colors.mutedForeground : "#fff"}
-              />
-              <Text style={[styles.advanceBtnText, { color: assembly.status === "water_test_failed" && !isAdmin ? colors.mutedForeground : "#fff" }]}>
-                {assembly.status === "water_test_failed"
-                  ? isAdmin ? "Tamamlandı Yap (Admin)" : "Yönetici Gerekli"
-                  : assembly.status === "cutting" ? "Montajı Başlat"
-                  : assembly.status === "installation" ? "Montajı Tamamla"
-                  : assembly.status === "installation_done" ? "Su Testine Gönder"
-                  : STATUS_LABELS[getNextStatus(assembly.status) ?? "completed"]}
-              </Text>
-            </Pressable>
-          )}
+          {canEdit && assembly.status !== "completed" && assembly.status !== "water_test" && (() => {
+            const isFailed = assembly.status === "water_test_failed";
+            const isBlocked = isFailed && !isAdmin;
+            const btnLabel = isFailed
+              ? isAdmin ? "Tamamlandı Yap (Admin)" : "Yönetici Gerekli"
+              : assembly.status === "pending" ? "Kesime Başla"
+              : assembly.status === "cutting" ? "Kesim Tamamlandı"
+              : assembly.status === "cutting_done" ? "Montajı Başlat"
+              : assembly.status === "installation" ? "Montajı Tamamla"
+              : assembly.status === "installation_done" ? "Su Testine Gönder"
+              : STATUS_LABELS[getNextStatus(assembly.status) ?? "completed"];
+            const btnIcon: any = isFailed
+              ? isAdmin ? "check-circle" : "lock"
+              : assembly.status === "pending" ? "scissors"
+              : assembly.status === "cutting" ? "check"
+              : assembly.status === "cutting_done" ? "play"
+              : assembly.status === "installation" ? "check"
+              : "arrow-right";
+            return (
+              <Pressable
+                onPress={handleAdvanceStatus}
+                style={({ pressed }) => [
+                  styles.advanceBtn,
+                  {
+                    backgroundColor: isBlocked ? colors.muted : colors.primary,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <Feather name={btnIcon} size={18} color={isBlocked ? colors.mutedForeground : "#fff"} />
+                <Text style={[styles.advanceBtnText, { color: isBlocked ? colors.mutedForeground : "#fff" }]}>
+                  {btnLabel}
+                </Text>
+              </Pressable>
+            );
+          })()}
         </View>
 
         {/* --- 4-hour countdown (for customer & admin when installation_done+ ) --- */}

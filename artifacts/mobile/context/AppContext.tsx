@@ -4,7 +4,9 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 export type UserRole = "field" | "admin" | "customer" | null;
 
 export type AssemblyStatus =
+  | "pending"
   | "cutting"
+  | "cutting_done"
   | "installation"
   | "installation_done"
   | "water_test"
@@ -179,8 +181,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = "@cam_montaj_assemblies_v5";
-const STOCK_KEY = "@cam_montaj_stock_v5";
+const STORAGE_KEY = "@cam_montaj_assemblies_v6";
+const STOCK_KEY = "@cam_montaj_stock_v6";
 const CONSUMABLES_KEY = "@cam_montaj_consumables_v2";
 const USERS_KEY = "@cam_montaj_users_v1";
 const SESSION_KEY = "@cam_montaj_session_v1";
@@ -194,13 +196,15 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     assignedTo: "Mehmet Demir", assignedToUserId: "u-mehmet",
     status: "installation",
     statusTimestamps: {
-      cutting: new Date(Date.now() - 2 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 3600000).toISOString(),
+      pending: new Date(Date.now() - 4 * 3600000).toISOString(),
+      cutting: new Date(Date.now() - 3.5 * 3600000).toISOString(),
+      cutting_done: new Date(Date.now() - 2.5 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 2 * 3600000).toISOString(),
     },
     photos: [], defects: [],
     notes: "Sağ taraf yan camlar değişimi.",
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 1800000).toISOString(),
+    createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
   },
   {
     id: "asm-002",
@@ -210,18 +214,20 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
     status: "water_test",
     statusTimestamps: {
-      cutting: new Date(Date.now() - 6 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 5 * 3600000).toISOString(),
-      installation_done: new Date(Date.now() - 4.5 * 3600000).toISOString(),
-      water_test: new Date(Date.now() - 4 * 3600000).toISOString(),
+      pending: new Date(Date.now() - 9 * 3600000).toISOString(),
+      cutting: new Date(Date.now() - 8 * 3600000).toISOString(),
+      cutting_done: new Date(Date.now() - 7 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 6 * 3600000).toISOString(),
+      installation_done: new Date(Date.now() - 5 * 3600000).toISOString(),
+      water_test: new Date(Date.now() - 4.5 * 3600000).toISOString(),
     },
-    installationCompletedAt: new Date(Date.now() - 4.5 * 3600000).toISOString(),
+    installationCompletedAt: new Date(Date.now() - 5 * 3600000).toISOString(),
     waterTestCustomerApproval: "pending",
     photos: [],
     defects: [{ id: "def-001", description: "Sol köşede küçük çizik", severity: "low", resolved: true, timestamp: new Date(Date.now() - 3600000).toISOString() }],
     notes: "Sol 1. yan cam.",
-    createdAt: new Date(Date.now() - 6 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 2700000).toISOString(),
+    createdAt: new Date(Date.now() - 9 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 4.5 * 3600000).toISOString(),
   },
   {
     id: "asm-003",
@@ -231,15 +237,17 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     assignedTo: "Hasan Yıldız", assignedToUserId: "u-hasan",
     status: "completed",
     statusTimestamps: {
-      cutting: new Date(Date.now() - 24 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 22 * 3600000).toISOString(),
+      pending: new Date(Date.now() - 26 * 3600000).toISOString(),
+      cutting: new Date(Date.now() - 25 * 3600000).toISOString(),
+      cutting_done: new Date(Date.now() - 24 * 3600000).toISOString(),
+      installation: new Date(Date.now() - 23 * 3600000).toISOString(),
       installation_done: new Date(Date.now() - 20 * 3600000).toISOString(),
       water_test: new Date(Date.now() - 12 * 3600000).toISOString(),
       completed: new Date(Date.now() - 6 * 3600000).toISOString(),
     },
     photos: [], defects: [],
     notes: "", waterTestResult: "passed",
-    createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
+    createdAt: new Date(Date.now() - 26 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
     completedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
   },
@@ -249,12 +257,16 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     vin: "VF3YHWMFB13459004", vinLast5: "59004",
     glassProductIds: ["g2"],
     assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
-    status: "cutting",
-    statusTimestamps: { cutting: new Date(Date.now() - 1800000).toISOString() },
+    status: "cutting_done",
+    statusTimestamps: {
+      pending: new Date(Date.now() - 3 * 3600000).toISOString(),
+      cutting: new Date(Date.now() - 2.5 * 3600000).toISOString(),
+      cutting_done: new Date(Date.now() - 45 * 60000).toISOString(),
+    },
     photos: [], defects: [],
     notes: "Sağ 2. yan cam.",
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-    updatedAt: new Date(Date.now() - 1800000).toISOString(),
+    createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 45 * 60000).toISOString(),
   },
   {
     id: "asm-005",
@@ -264,7 +276,9 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     assignedTo: "Murat Özkan", assignedToUserId: "u-murat",
     status: "water_test_failed",
     statusTimestamps: {
-      cutting: new Date(Date.now() - 8 * 3600000).toISOString(),
+      pending: new Date(Date.now() - 10 * 3600000).toISOString(),
+      cutting: new Date(Date.now() - 9 * 3600000).toISOString(),
+      cutting_done: new Date(Date.now() - 8 * 3600000).toISOString(),
       installation: new Date(Date.now() - 7 * 3600000).toISOString(),
       installation_done: new Date(Date.now() - 5 * 3600000).toISOString(),
       water_test: new Date(Date.now() - 3 * 3600000).toISOString(),
@@ -273,8 +287,23 @@ const DEMO_ASSEMBLIES: AssemblyRecord[] = [
     photos: [],
     defects: [{ id: "def-002", description: "Sızdırmazlık yetersiz", severity: "high", resolved: false, timestamp: new Date(Date.now() - 2 * 3600000).toISOString() }],
     notes: "Su testinden kaldı.",
-    createdAt: new Date(Date.now() - 8 * 3600000).toISOString(),
+    createdAt: new Date(Date.now() - 10 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+  },
+  {
+    id: "asm-006",
+    vehicleModel: "opel-movano",
+    vin: "VF3YHWMFB13459006", vinLast5: "59006",
+    glassProductIds: ["g5"],
+    assignedTo: "Hasan Yıldız", assignedToUserId: "u-hasan",
+    status: "pending",
+    statusTimestamps: {
+      pending: new Date(Date.now() - 20 * 60000).toISOString(),
+    },
+    photos: [], defects: [],
+    notes: "",
+    createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
+    updatedAt: new Date(Date.now() - 20 * 60000).toISOString(),
   },
 ];
 
@@ -414,7 +443,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newRecord: AssemblyRecord = {
         ...data,
         id: `asm-${Date.now()}`, createdAt: now, updatedAt: now,
-        statusTimestamps: { cutting: now, ...data.statusTimestamps },
+        statusTimestamps: { pending: now, ...data.statusTimestamps },
         activityLog: [logEntry],
       };
       saveAssemblies([newRecord, ...assemblies]);

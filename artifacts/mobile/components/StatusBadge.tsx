@@ -5,7 +5,9 @@ import { AssemblyStatus } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 export const STATUS_LABELS: Record<AssemblyStatus, string> = {
-  cutting: "Beklemede",
+  pending: "Beklemede",
+  cutting: "Kesimde",
+  cutting_done: "Kesim Tamam",
   installation: "Montajda",
   installation_done: "Montaj Tamam",
   water_test: "Su Testinde",
@@ -23,7 +25,9 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
 
   const getStatusColor = (): string => {
     switch (status) {
+      case "pending": return colors.mutedForeground;
       case "cutting": return colors.warning;
+      case "cutting_done": return "#f97316";
       case "installation": return colors.primary;
       case "installation_done": return colors.accent;
       case "water_test": return "#8b5cf6";

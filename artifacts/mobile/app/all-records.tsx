@@ -19,7 +19,9 @@ import { useColors } from "@/hooks/useColors";
 
 const STATUS_FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tümü", value: "all" },
-  { label: "Beklemede", value: "cutting" },
+  { label: "Beklemede", value: "pending" },
+  { label: "Kesimde", value: "cutting" },
+  { label: "Kesim Tamam", value: "cutting_done" },
   { label: "Montajda", value: "installation" },
   { label: "Montaj Tamam", value: "installation_done" },
   { label: "Su Testi", value: "water_test" },

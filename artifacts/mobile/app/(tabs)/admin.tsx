@@ -9,7 +9,9 @@ import { AssemblyStatus, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const STATUS_LABELS: Record<AssemblyStatus, string> = {
-  cutting: "Beklemede",
+  pending: "Beklemede",
+  cutting: "Kesimde",
+  cutting_done: "Kesim Tamam",
   installation: "Montajda",
   installation_done: "Montaj Tamam",
   water_test: "Su Testinde",
@@ -18,7 +20,9 @@ const STATUS_LABELS: Record<AssemblyStatus, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  pending: "#94a3b8",
   cutting: "#f59e0b",
+  cutting_done: "#f97316",
   installation: "#0a84ff",
   installation_done: "#00bcd4",
   water_test: "#8b5cf6",

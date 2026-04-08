@@ -147,7 +147,7 @@ export default function NewAssemblyScreen() {
       assignedTo,
       assignedToUserId: assignedUser?.id,
       notes: notes.trim(),
-      status: "cutting" as AssemblyStatus,
+      status: "pending" as AssemblyStatus,
       statusTimestamps: {},
       photos: [],
       defects: [],
