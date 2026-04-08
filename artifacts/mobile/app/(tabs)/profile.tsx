@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { CUSTOMER_NAME, VEHICLE_MODEL, useApp } from "@/context/AppContext";
+import { CUSTOMER_NAME, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
       <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Proje Bilgileri</Text>
         <InfoRow icon="user" label="Müşteri" value={CUSTOMER_NAME} colors={colors} />
-        <InfoRow icon="truck" label="Araç" value={VEHICLE_MODEL} colors={colors} />
+        <InfoRow icon="truck" label="Araç" value="Çoklu Marka" colors={colors} />
         <InfoRow icon="layers" label="Toplam Kayıt" value={String(assemblies.length)} colors={colors} />
       </View>
 

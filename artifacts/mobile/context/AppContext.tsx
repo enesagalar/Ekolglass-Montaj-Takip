@@ -92,7 +92,6 @@ export const DEFAULT_USERS: AppUser[] = [
 ];
 
 export const CUSTOMER_NAME = "ISRI";
-export const VEHICLE_MODEL = "Fiat Ducato";
 
 export type PhotoType =
   | "approval_doc"
@@ -184,9 +183,6 @@ const STOCK_KEY = "@cam_montaj_stock_v5";
 const CONSUMABLES_KEY = "@cam_montaj_consumables_v2";
 const USERS_KEY = "@cam_montaj_users_v1";
 const SESSION_KEY = "@cam_montaj_session_v1";
-
-const now = new Date();
-const todayStart = new Date(now); todayStart.setHours(8, 0, 0, 0);
 
 const DEMO_ASSEMBLIES: AssemblyRecord[] = [
   {
