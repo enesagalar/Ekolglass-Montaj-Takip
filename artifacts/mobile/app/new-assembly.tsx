@@ -19,7 +19,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   AssemblyStatus,
-  CUSTOMER_NAME,
   GLASS_POSITIONS,
   VEHICLE_BRANDS,
   VehicleBrand,
@@ -226,10 +225,7 @@ export default function NewAssemblyScreen() {
         {/* ---- STEP 0: Brand selection ---- */}
         {step === 0 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Araç Markasını Seçin</Text>
-            <Text style={[styles.stepSub, { color: colors.mutedForeground }]}>
-              Montaj yapılacak araç markasını seçin. Cam kodları buna göre belirlenir.
-            </Text>
+            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Araç Markası</Text>
             <View style={styles.brandGrid}>
               {VEHICLE_BRANDS.map((brand) => {
                 const isSelected = selectedBrand?.id === brand.id;
@@ -270,15 +266,10 @@ export default function NewAssemblyScreen() {
         {/* ---- STEP 1: Approval document photo ---- */}
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Araç Onay Belgesi Fotoğrafı</Text>
+            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Araç Onay Belgesi</Text>
             <Text style={[styles.stepSub, { color: colors.mutedForeground }]}>
-              Araçta bulunan onay belgesinin fotoğrafını yükleyin. Bu fotoğraf olmadan kayıt açılamaz.
+              Onay belgesinin fotoğrafını çekin (zorunlu)
             </Text>
-
-            <View style={[styles.mandatoryBadge, { backgroundColor: colors.destructive + "12", borderColor: colors.destructive + "30" }]}>
-              <Feather name="alert-circle" size={13} color={colors.destructive} />
-              <Text style={[styles.mandatoryText, { color: colors.destructive }]}>Zorunlu alan</Text>
-            </View>
 
             {approvalDocUri ? (
               <Pressable onPress={() => handlePhotoPress(setApprovalDocUri)} style={styles.photoPreviewWrap}>
@@ -314,9 +305,9 @@ export default function NewAssemblyScreen() {
         {/* ---- STEP 2: VIN last 5 + VIN photo ---- */}
         {step === 2 && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Şase Numarası (Son 5 Hane)</Text>
+            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Şase Numarası</Text>
             <Text style={[styles.stepSub, { color: colors.mutedForeground }]}>
-              Araç şase numarasının son 5 hanesini girin ve şase plakanın fotoğrafını çekin.
+              Son 5 hane + şase fotoğrafı (zorunlu)
             </Text>
 
             <View style={[styles.vinInputWrap, { backgroundColor: colors.muted, borderColor: vinLast5.length === 5 ? colors.success : colors.border }]}>
@@ -377,26 +368,7 @@ export default function NewAssemblyScreen() {
         {/* ---- STEP 3: Glass + staff + notes ---- */}
         {step === 3 && selectedBrand && (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Cam ve Personel Seçimi</Text>
-
-            {/* Customer info banner */}
-            <View style={[styles.infoBanner, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
-              <View style={styles.infoBannerRow}>
-                <Feather name="truck" size={13} color={colors.primary} />
-                <Text style={[styles.infoBannerLabel, { color: colors.mutedForeground }]}>Marka</Text>
-                <Text style={[styles.infoBannerValue, { color: colors.foreground }]}>{selectedBrand.name}</Text>
-              </View>
-              <View style={styles.infoBannerRow}>
-                <Feather name="shield" size={13} color={colors.primary} />
-                <Text style={[styles.infoBannerLabel, { color: colors.mutedForeground }]}>Şase</Text>
-                <Text style={[styles.infoBannerValue, { color: colors.foreground }]}>...{vinLast5}</Text>
-              </View>
-              <View style={styles.infoBannerRow}>
-                <Feather name="user" size={13} color={colors.primary} />
-                <Text style={[styles.infoBannerLabel, { color: colors.mutedForeground }]}>Müşteri</Text>
-                <Text style={[styles.infoBannerValue, { color: colors.foreground }]}>{CUSTOMER_NAME}</Text>
-              </View>
-            </View>
+            <Text style={[styles.stepTitle, { color: colors.foreground }]}>Cam ve Personel</Text>
 
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
               CAM SEÇİMİ ({selectedGlassIds.length > 0 ? `${selectedGlassIds.length} seçildi` : "en az 1 gerekli"})

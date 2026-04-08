@@ -27,13 +27,6 @@ const STATUS_FILTERS: { label: string; value: AssemblyStatus | "all" }[] = [
   { label: "Tamamlandı", value: "completed" },
 ];
 
-type SortOptionValue = "updated" | "created" | "status";
-const SORT_OPTIONS: { label: string; value: SortOptionValue }[] = [
-  { label: "Güncelleme", value: "updated" },
-  { label: "Oluşturma", value: "created" },
-  { label: "Öncelik", value: "status" },
-];
-
 type DateRange = "today" | "week" | "month" | "all";
 const DATE_RANGES: { label: string; value: DateRange }[] = [
   { label: "Bugün", value: "today" },
@@ -50,11 +43,6 @@ function getDateStart(range: DateRange): Date {
   return new Date(0);
 }
 
-const STATUS_PRIORITY: Record<AssemblyStatus, number> = {
-  water_test_failed: 0, water_test: 1, installation_done: 2,
-  installation: 3, cutting: 4, completed: 5,
-};
-
 export default function AllRecordsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -67,8 +55,6 @@ export default function AllRecordsScreen() {
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [sortBy, setSortBy] = useState<SortOptionValue>("updated");
-
   const dateStart = useMemo(() => getDateStart(dateRange), [dateRange]);
 
   const statusCounts = useMemo(() => {
@@ -91,12 +77,8 @@ export default function AllRecordsScreen() {
           a.assignedTo.toLowerCase().includes(q);
         return matchStatus && matchBrand && matchDate && matchSearch;
       })
-      .sort((a, b) => {
-        if (sortBy === "updated") return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        if (sortBy === "created") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        return (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9);
-      });
-  }, [assemblies, statusFilter, brandFilter, dateRange, dateStart, search, sortBy]);
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [assemblies, statusFilter, brandFilter, dateRange, dateStart, search]);
 
   const summaryStats = useMemo(() => {
     const completed = filtered.filter((a) => a.status === "completed").length;
@@ -140,7 +122,7 @@ export default function AllRecordsScreen() {
           )}
         </View>
 
-        {/* Date range + sort */}
+        {/* Date range */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {DATE_RANGES.map((r) => (
             <Pressable
@@ -150,18 +132,6 @@ export default function AllRecordsScreen() {
             >
               <Text style={[styles.chipText, { color: dateRange === r.value ? colors.background : colors.mutedForeground }]}>
                 {r.label}
-              </Text>
-            </Pressable>
-          ))}
-          <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
-          {SORT_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.value}
-              onPress={() => setSortBy(opt.value)}
-              style={[styles.chip, { backgroundColor: sortBy === opt.value ? colors.primary : colors.muted, borderColor: sortBy === opt.value ? colors.primary : colors.border }]}
-            >
-              <Text style={[styles.chipText, { color: sortBy === opt.value ? "#fff" : colors.mutedForeground }]}>
-                {opt.label}
               </Text>
             </Pressable>
           ))}

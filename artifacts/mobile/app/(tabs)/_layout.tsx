@@ -77,9 +77,22 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="photos"
+        options={{
+          title: "Fotoğraflar",
+          tabBarIcon: ({ color, size }) =>
+            isIOS ? (
+              <SymbolView name="photo.stack" tintColor={color} size={size} />
+            ) : (
+              <Feather name="image" size={size} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
         name="stock"
         options={{
           title: "Stok",
+          href: role === "customer" ? null : undefined,
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
               <SymbolView name="shippingbox" tintColor={color} size={size} />

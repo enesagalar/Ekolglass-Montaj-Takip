@@ -249,16 +249,15 @@ export default function AssemblyDetailScreen() {
             { label: "Kesim Öncesi", hint: "Camı kesmeden önceki durumu kaydedin (genel görünüm)", photoType: "cutting_before" },
             ...CAPTURE_ANGLES.map((angle) => ({
               label: `Kesim Sonrası · ${angle}`,
-              hint: `Kesim tamamlandıktan sonra ${angle.toLowerCase()} açıdan çekin`,
+              hint: `Kesim bitti — ${angle.toLowerCase()} açıdan çekin (montaj öncesi durum)`,
               photoType: "cutting_after" as PhotoType,
               angle,
             })),
           ]
         : [
-            { label: "Montaj Öncesi", hint: "Montaja başlamadan önceki durumu kaydedin (genel görünüm)", photoType: "installation_before" as PhotoType },
             ...CAPTURE_ANGLES.map((angle) => ({
               label: `Montaj Sonrası · ${angle}`,
-              hint: `Montaj tamamlandıktan sonra ${angle.toLowerCase()} açıdan çekin`,
+              hint: `Montaj tamamlandı — ${angle.toLowerCase()} açıdan çekin`,
               photoType: "installation_after" as PhotoType,
               angle,
             })),
