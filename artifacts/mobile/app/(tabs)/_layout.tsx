@@ -9,7 +9,7 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function TabLayout() {
-  const { role, assemblies } = useApp();
+  const { role, assemblies, glassRequests } = useApp();
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -20,6 +20,8 @@ export default function TabLayout() {
 
   const showAdmin = role === "admin";
   const showNew = role === "field" || role === "admin";
+  const showRequests = role === "admin" || role === "customer";
+  const pendingRequestsCount = glassRequests.filter((r) => r.status === "pending").length;
 
   const urgentCount = assemblies.filter((a) => a.status === "water_test_failed").length;
 
@@ -92,12 +94,27 @@ export default function TabLayout() {
         name="stock"
         options={{
           title: "Stok",
-          href: role === "customer" ? null : undefined,
+          href: role === "field" ? null : undefined,
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
               <SymbolView name="shippingbox" tintColor={color} size={size} />
             ) : (
               <Feather name="package" size={size} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="requests"
+        options={{
+          title: "Talepler",
+          href: showRequests ? undefined : null,
+          tabBarBadge: showAdmin && pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: "#f59e0b", fontSize: 10 },
+          tabBarIcon: ({ color, size }) =>
+            isIOS ? (
+              <SymbolView name="tray.and.arrow.up" tintColor={color} size={size} />
+            ) : (
+              <Feather name="file-text" size={size} color={color} />
             ),
         }}
       />

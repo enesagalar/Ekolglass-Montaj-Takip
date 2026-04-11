@@ -160,23 +160,33 @@ router.patch("/assemblies/:id", requireRole("field", "admin"), async (req, res) 
       return;
     }
 
-    // Auto-deduct consumables when montaj is completed (installation_done)
-    if (statusChangingTo === "installation_done") {
-      const { data: silikone } = await supabase
-        .from("consumables")
-        .select("stock")
-        .eq("id", "c1")
-        .single();
-      if (silikone) {
-        const newStock = Math.max(0, Number(silikone.stock) - 3.5);
-        await supabase
+    // Auto-deduct consumables when montaj STARTS (installation)
+    // Silikon: 3 adet/araç | Primer: 1.5L/30 araç = 0.05/araç | Bant: 1 adet/4 araç = 0.25/araç
+    if (statusChangingTo === "installation") {
+      const DEDUCTIONS = [
+        { id: "c1", amount: 3,    label: "3 adet Silikon" },
+        { id: "c2", amount: 0.05, label: "0.05 lt Primer" },
+        { id: "c4", amount: 0.25, label: "0.25 adet Bant" },
+      ];
+
+      for (const d of DEDUCTIONS) {
+        const { data: row } = await supabase
           .from("consumables")
-          .update({ stock: newStock, updated_at: now })
-          .eq("id", "c1");
+          .select("stock")
+          .eq("id", d.id)
+          .single();
+        if (row) {
+          const newStock = Math.max(0, Number(row.stock) - d.amount);
+          await supabase
+            .from("consumables")
+            .update({ stock: newStock, updated_at: now })
+            .eq("id", d.id);
+        }
       }
+
       await supabase.from("activity_log").insert({
         assembly_id: id,
-        action: "Otomatik: 3.5 adet silikon stoktan düşüldü",
+        action: "Otomatik sarf düşümü: 3 Silikon, 0.05 lt Primer, 0.25 Bant",
         user_id: user.id,
         user_name: user.user_metadata?.name ?? user.email,
         created_at: now,

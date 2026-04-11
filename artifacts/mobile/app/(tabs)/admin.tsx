@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AssemblyCard } from "@/components/AssemblyCard";
@@ -33,7 +33,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function AdminScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { assemblies, glassStock, consumables, users, role } = useApp();
+  const { assemblies, glassStock, consumables, users, role, glassRequests } = useApp();
 
   if (role !== "admin") {
     return (
@@ -57,8 +57,9 @@ export default function AdminScreen() {
     const waterTestFailed = assemblies.filter((a) => a.status === "water_test_failed").length;
     const lowGlassStock = glassStock.filter((g) => g.stock <= 2).length;
     const lowConsumables = consumables.filter((c) => c.stock <= 3).length;
-    return { total: assemblies.length, todayNew, active, completed, waterTestFailed, lowGlassStock, lowConsumables };
-  }, [assemblies, glassStock, consumables]);
+    const pendingRequests = glassRequests.filter((r) => r.status === "pending").length;
+    return { total: assemblies.length, todayNew, active, completed, waterTestFailed, lowGlassStock, lowConsumables, pendingRequests };
+  }, [assemblies, glassStock, consumables, glassRequests]);
 
   const statusBreakdown = useMemo(() => {
     const counts: Partial<Record<AssemblyStatus, number>> = {};
@@ -82,7 +83,13 @@ export default function AdminScreen() {
       .slice(0, 3);
   }, [assemblies]);
 
-  const hasAlerts = stats.waterTestFailed > 0 || stats.lowGlassStock > 0 || stats.lowConsumables > 0;
+  const pendingGlassRequests = useMemo(() => {
+    return glassRequests.filter((r) => r.status === "pending")
+      .sort((a, b) => new Date(a.requestedDate).getTime() - new Date(b.requestedDate).getTime())
+      .slice(0, 3);
+  }, [glassRequests]);
+
+  const hasAlerts = stats.waterTestFailed > 0 || stats.lowGlassStock > 0 || stats.lowConsumables > 0 || stats.pendingRequests > 0;
 
   return (
     <ScrollView
@@ -92,7 +99,9 @@ export default function AdminScreen() {
     >
       {/* Title */}
       <View style={styles.titleRow}>
-        <Text style={[styles.pageTitle, { color: colors.foreground }]}>Yönetim Paneli</Text>
+        <View style={{ flex: 1 }}>
+          <Image source={require("../../assets/images/ekolglass-logo.jpg")} style={styles.logoImg} resizeMode="contain" />
+        </View>
         <Pressable
           onPress={() => router.push("/all-records")}
           style={[styles.allRecordsBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
@@ -123,6 +132,12 @@ export default function AdminScreen() {
         <>
           <Text style={[styles.section, { color: colors.mutedForeground }]}>UYARILAR</Text>
           <View style={styles.alertsColumn}>
+            {stats.pendingRequests > 0 && (
+              <Pressable onPress={() => router.push("/(tabs)/requests" as any)}>
+                <AlertBox icon="file-text" color="#f59e0b"
+                  text={`${stats.pendingRequests} bekleyen ISRI cam talebi`} colors={colors} />
+              </Pressable>
+            )}
             {stats.waterTestFailed > 0 && (
               <AlertBox icon="alert-triangle" color={colors.destructive}
                 text={`${stats.waterTestFailed} kayıt su testinden kaldı`} colors={colors} />
@@ -176,6 +191,42 @@ export default function AdminScreen() {
         </>
       )}
 
+      {/* ISRI Requests Preview */}
+      {pendingGlassRequests.length > 0 && (
+        <>
+          <View style={styles.sectionRow}>
+            <Text style={[styles.section, { color: colors.mutedForeground }]}>ISRI CAM TALEPLERİ</Text>
+            <Pressable onPress={() => router.push("/(tabs)/requests" as any)}>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>Tümünü Gör</Text>
+            </Pressable>
+          </View>
+          {pendingGlassRequests.map((req) => {
+            const dateStr = req.requestedDate ? req.requestedDate.split("-").reverse().join("/") : "";
+            return (
+              <Pressable
+                key={req.id}
+                onPress={() => router.push("/(tabs)/requests" as any)}
+                style={({ pressed }) => [styles.reqPreviewCard, { backgroundColor: colors.card, borderColor: "#f59e0b40", opacity: pressed ? 0.85 : 1 }]}
+              >
+                <View style={styles.reqPreviewRow}>
+                  <View style={[styles.reqDot, { backgroundColor: "#f59e0b" }]} />
+                  <Text style={[styles.reqPreviewName, { color: colors.foreground }]}>{req.requestedByName}</Text>
+                  <View style={[styles.reqBadge, { backgroundColor: "#f59e0b18", borderColor: "#f59e0b40" }]}>
+                    <Text style={[styles.reqBadgeText, { color: "#f59e0b" }]}>Beklemede</Text>
+                  </View>
+                </View>
+                <Text style={[styles.reqPreviewDate, { color: colors.mutedForeground }]}>
+                  Talep tarihi: {dateStr}
+                </Text>
+                <Text style={[styles.reqPreviewItems, { color: colors.foreground }]}>
+                  {req.items.map((i) => `${i.glassName} (${i.quantity})`).join(" · ")}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </>
+      )}
+
       {/* Admin actions */}
       <View style={[styles.actionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <ActionRow icon="users" label="Kullanıcı Yönetimi" onPress={() => router.push("/manage-users" as any)} colors={colors} />
@@ -183,6 +234,8 @@ export default function AdminScreen() {
         <ActionRow icon="plus-circle" label="Yeni Kayıt" onPress={() => router.push("/new-assembly")} colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <ActionRow icon="package" label="Stok Yönetimi" onPress={() => router.push("/(tabs)/stock" as any)} colors={colors} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <ActionRow icon="file-text" label="ISRI Talepleri" onPress={() => router.push("/(tabs)/requests" as any)} colors={colors} />
       </View>
     </ScrollView>
   );
@@ -227,6 +280,7 @@ const styles = StyleSheet.create({
   restrictedText: { fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "center" },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   pageTitle: { fontSize: 24, fontFamily: "Inter_700Bold" },
+  logoImg: { width: 130, height: 50 },
   allRecordsBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
   allRecordsBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   statsRow: { flexDirection: "row", gap: 10 },
@@ -252,4 +306,14 @@ const styles = StyleSheet.create({
   actionIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   actionLabel: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
   divider: { height: 1, marginHorizontal: 14 },
+  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  seeAllText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  reqPreviewCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 6 },
+  reqPreviewRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reqDot: { width: 8, height: 8, borderRadius: 4 },
+  reqPreviewName: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  reqBadge: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  reqBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  reqPreviewDate: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  reqPreviewItems: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });

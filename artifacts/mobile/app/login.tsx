@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -67,14 +67,13 @@ export default function LoginScreen() {
       >
         {/* Logo */}
         <View style={styles.logoSection}>
-          <View style={[styles.iconBg, { backgroundColor: colors.primary + "18" }]}>
-            <Feather name="wind" size={40} color={colors.primary} />
-          </View>
-          <Text style={[styles.appName, { color: colors.foreground }]}>
-            Cam Montaj Takip
-          </Text>
+          <Image
+            source={require("../assets/images/ekolglass-logo.jpg")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={[styles.appSubtitle, { color: colors.mutedForeground }]}>
-            ISRI · Çoklu Araç Takip
+            Cam Montaj Takip Sistemi
           </Text>
         </View>
 
@@ -186,10 +185,9 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   container: { paddingHorizontal: 24, gap: 28 },
-  logoSection: { alignItems: "center", gap: 10 },
-  iconBg: { width: 88, height: 88, borderRadius: 26, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  appName: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center" },
-  appSubtitle: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+  logoSection: { alignItems: "center", gap: 6 },
+  logoImage: { width: 200, height: 100 },
+  appSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
   card: { borderRadius: 20, borderWidth: 1, padding: 24, gap: 16 },
   cardTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
   cardSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -8 },

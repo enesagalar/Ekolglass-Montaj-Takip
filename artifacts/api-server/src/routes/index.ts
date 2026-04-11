@@ -4,6 +4,7 @@ import authRouter from "./auth.js";
 import assembliesRouter from "./assemblies.js";
 import usersRouter from "./users.js";
 import stockRouter from "./stock.js";
+import glassRequestsRouter from "./glass-requests.js";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(authRouter);
 router.use(assembliesRouter);
 router.use(usersRouter);
 router.use(stockRouter);
+router.use(glassRequestsRouter);
 
 export default router;

@@ -147,6 +147,40 @@ export interface ActivityLogEntry {
   timestamp: string;
 }
 
+export interface GlassRequestItem {
+  glassId: string;
+  glassName: string;
+  quantity: number;
+}
+
+export interface GlassRequest {
+  id: string;
+  requestedBy: string;
+  requestedByName: string;
+  items: GlassRequestItem[];
+  requestedDate: string;
+  status: "pending" | "approved" | "rejected";
+  adminNote?: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function dbRowToGlassRequest(row: any): GlassRequest {
+  return {
+    id: row.id,
+    requestedBy: row.requested_by ?? "",
+    requestedByName: row.requested_by_name ?? "",
+    items: row.items ?? [],
+    requestedDate: row.requested_date ?? "",
+    status: row.status ?? "pending",
+    adminNote: row.admin_note ?? undefined,
+    notes: row.notes ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 // Convert snake_case DB row to camelCase AssemblyRecord
 function dbRowToAssembly(row: any): AssemblyRecord {
   return {
@@ -229,6 +263,11 @@ interface AppContextType {
   updateConsumable: (consumableId: string, delta: number) => Promise<void>;
   getGlassProduct: (id: string) => GlassProduct | undefined;
   refreshAssemblies: () => Promise<void>;
+  glassRequests: GlassRequest[];
+  addGlassRequest: (data: { items: GlassRequestItem[]; requestedDate: string; notes?: string }) => Promise<GlassRequest>;
+  updateGlassRequest: (id: string, updates: { status?: string; adminNote?: string }) => Promise<void>;
+  deleteGlassRequest: (id: string) => Promise<void>;
+  refreshGlassRequests: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -241,6 +280,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
   const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_POSITIONS);
   const [consumables, setConsumables] = useState<Consumable[]>(DEFAULT_CONSUMABLES);
+  const [glassRequests, setGlassRequests] = useState<GlassRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -289,6 +329,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loadGlassRequests = useCallback(async () => {
+    try {
+      const data = await apiGet<any[]>("/glass-requests");
+      setGlassRequests(data.map(dbRowToGlassRequest));
+    } catch {
+      // ignore, table might not exist yet
+    }
+  }, []);
+
   // Restore session from storage
   useEffect(() => {
     const restore = async () => {
@@ -297,7 +346,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (saved) {
           const parsed = JSON.parse(saved) as AppUser;
           setCurrentUser(parsed);
-          await Promise.all([loadAssemblies(), loadStock(), loadUsers()]);
+          await Promise.all([loadAssemblies(), loadStock(), loadUsers(), loadGlassRequests()]);
         }
       } catch {
         // fresh start
@@ -338,14 +387,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       setCurrentUser(user);
       await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(user));
-      await Promise.all([loadAssemblies(), loadStock(), loadUsers()]);
+      await Promise.all([loadAssemblies(), loadStock(), loadUsers(), loadGlassRequests()]);
       return { success: true };
     } catch (err: any) {
       const msg = err.message ?? "Giriş başarısız.";
       setApiError(msg);
       return { success: false, message: msg };
     }
-  }, [loadAssemblies, loadStock, loadUsers]);
+  }, [loadAssemblies, loadStock, loadUsers, loadGlassRequests]);
 
   const logout = useCallback(async () => {
     try {
@@ -357,6 +406,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(SESSION_KEY);
     setCurrentUser(null);
     setAssemblies([]);
+    setGlassRequests([]);
   }, []);
 
   const addUser = useCallback(async (user: Omit<AppUser, "id" | "createdAt">) => {
@@ -487,6 +537,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await loadAssemblies();
   }, [loadAssemblies]);
 
+  const addGlassRequest = useCallback(async (data: { items: GlassRequestItem[]; requestedDate: string; notes?: string }): Promise<GlassRequest> => {
+    const row = await apiPost<any>("/glass-requests", data);
+    const req = dbRowToGlassRequest(row);
+    setGlassRequests((prev) => [req, ...prev]);
+    return req;
+  }, []);
+
+  const updateGlassRequest = useCallback(async (id: string, updates: { status?: string; adminNote?: string }) => {
+    const row = await apiPatch<any>(`/glass-requests/${id}`, updates);
+    const req = dbRowToGlassRequest(row);
+    setGlassRequests((prev) => prev.map((r) => r.id === id ? req : r));
+  }, []);
+
+  const deleteGlassRequest = useCallback(async (id: string) => {
+    await apiDelete(`/glass-requests/${id}`);
+    setGlassRequests((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const refreshGlassRequests = useCallback(async () => {
+    await loadGlassRequests();
+  }, [loadGlassRequests]);
+
   const role: UserRole = currentUser?.role ?? null;
 
   return (
@@ -498,6 +570,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addPhoto, addPhotos, addDefect, updateDefect,
       updateStock, updateConsumable, getGlassProduct: (id) => glassStock.find((g) => g.id === id),
       refreshAssemblies,
+      glassRequests, addGlassRequest, updateGlassRequest, deleteGlassRequest, refreshGlassRequests,
     }}>
       {children}
     </AppContext.Provider>
