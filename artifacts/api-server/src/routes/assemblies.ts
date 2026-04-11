@@ -6,11 +6,16 @@ const router = Router();
 
 router.use(requireAuth);
 
+// Helper: translate Supabase auth UUID → app_users.id
+async function getAppUserId(authUuid: string): Promise<string | null> {
+  const { data } = await supabase.from("app_users").select("id").eq("auth_id", authUuid).single();
+  return data?.id ?? null;
+}
+
 router.get("/assemblies", async (req, res) => {
   try {
     const user = (req as any).user;
     const role = user.user_metadata?.role;
-    const userId = user.id;
 
     let query = supabase
       .from("assemblies")
@@ -23,7 +28,13 @@ router.get("/assemblies", async (req, res) => {
       .order("updated_at", { ascending: false });
 
     if (role === "field") {
-      query = query.eq("assigned_to_user_id", userId);
+      // assigned_to_user_id FK references app_users.id, but JWT gives us Supabase auth UUID
+      const appUserId = await getAppUserId(user.id);
+      if (!appUserId) {
+        res.json([]);
+        return;
+      }
+      query = query.eq("assigned_to_user_id", appUserId);
     }
 
     const { data, error } = await query;
@@ -62,8 +73,12 @@ router.post("/assemblies", requireRole("field", "admin"), async (req, res) => {
     const now = new Date().toISOString();
 
     const role = user.user_metadata?.role;
-    // For field users, ensure assigned_to_user_id is always their own ID
-    const assignedToUserId = body.assignedToUserId ?? (role === "field" ? user.id : undefined);
+    // assigned_to_user_id FK references app_users.id, not Supabase auth UUID.
+    // For field users, look up their app_users.id when not provided by client.
+    let assignedToUserId: string | undefined = body.assignedToUserId;
+    if (!assignedToUserId && role === "field") {
+      assignedToUserId = (await getAppUserId(user.id)) ?? undefined;
+    }
 
     const record = {
       vehicle_model: body.vehicleModel,

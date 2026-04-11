@@ -16,6 +16,7 @@ export type AssemblyStatus =
 
 export interface AppUser {
   id: string;
+  authId?: string;
   username: string;
   password?: string;
   name: string;
@@ -318,6 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const data = await apiGet<any[]>("/users");
       setUsers(data.map((u: any): AppUser => ({
         id: u.id,
+        authId: u.auth_id,
         username: u.username,
         name: u.name,
         role: u.role,
