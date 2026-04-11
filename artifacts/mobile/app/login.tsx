@@ -178,16 +178,6 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        {/* Hint for demo */}
-        <View style={[styles.hintBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-          <Feather name="info" size={13} color={colors.mutedForeground} />
-          <View style={styles.hintContent}>
-            <Text style={[styles.hintTitle, { color: colors.foreground }]}>Demo Hesapları</Text>
-            <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>Admin: <Text style={{ fontFamily: "Inter_600SemiBold" }}>admin / admin123</Text></Text>
-            <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>Personel: <Text style={{ fontFamily: "Inter_600SemiBold" }}>mehmet / 1234</Text></Text>
-            <Text style={[styles.hintLine, { color: colors.mutedForeground }]}>ISRI: <Text style={{ fontFamily: "Inter_600SemiBold" }}>isri / isri2024</Text></Text>
-          </View>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -235,15 +225,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   loginBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: "#fff" },
-  hintBox: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "flex-start",
-  },
-  hintContent: { flex: 1, gap: 3 },
-  hintTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
-  hintLine: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });

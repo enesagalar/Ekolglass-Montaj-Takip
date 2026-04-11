@@ -1,24 +1,24 @@
-import { useColorScheme } from "react-native";
+import { useEffect, useState } from "react";
 
 import colors from "@/constants/colors";
 
+function isDarkTime(): boolean {
+  const h = new Date().getHours();
+  return h >= 20 || h < 6;
+}
+
 /**
- * Returns the design tokens for the current color scheme.
- *
- * The returned object contains all color tokens for the active palette
- * plus scheme-independent values like `radius`.
- *
- * Falls back to the light palette when no dark key is defined in
- * constants/colors.ts (the scaffold ships light-only by default).
- * When a sibling web artifact's dark tokens are synced into a `dark`
- * key, this hook will automatically switch palettes based on the
- * device's appearance setting.
+ * Time-based theme: 06:00–20:00 → Light, 20:00–06:00 → Dark.
+ * Automatically switches at threshold hours without needing device settings.
  */
 export function useColors() {
-  const scheme = useColorScheme();
-  const palette =
-    scheme === "dark" && "dark" in colors
-      ? (colors as unknown as Record<string, typeof colors.light>).dark
-      : colors.light;
-  return { ...palette, radius: colors.radius };
+  const [dark, setDark] = useState(isDarkTime);
+
+  useEffect(() => {
+    const interval = setInterval(() => setDark(isDarkTime()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const palette = dark ? colors.dark : colors.light;
+  return { ...palette, radius: colors.radius, isDark: dark };
 }

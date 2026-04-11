@@ -143,8 +143,10 @@ router.patch("/assemblies/:id", requireRole("field", "admin"), async (req, res) 
       if (jsKey in body) updates[dbKey] = body[jsKey];
     }
 
-    if (body.status && body.status !== existing.status) {
-      const ts = { ...(existing.status_timestamps ?? {}), [body.status]: now };
+    const statusChangingTo = body.status && body.status !== existing.status ? body.status : null;
+
+    if (statusChangingTo) {
+      const ts = { ...(existing.status_timestamps ?? {}), [statusChangingTo]: now };
       updates["status_timestamps"] = ts;
     }
 
@@ -156,6 +158,29 @@ router.patch("/assemblies/:id", requireRole("field", "admin"), async (req, res) 
     if (updateErr) {
       res.status(500).json({ error: updateErr.message });
       return;
+    }
+
+    // Auto-deduct consumables when montaj is completed (installation_done)
+    if (statusChangingTo === "installation_done") {
+      const { data: silikone } = await supabase
+        .from("consumables")
+        .select("stock")
+        .eq("id", "c1")
+        .single();
+      if (silikone) {
+        const newStock = Math.max(0, Number(silikone.stock) - 3.5);
+        await supabase
+          .from("consumables")
+          .update({ stock: newStock, updated_at: now })
+          .eq("id", "c1");
+      }
+      await supabase.from("activity_log").insert({
+        assembly_id: id,
+        action: "Otomatik: 3.5 adet silikon stoktan düşüldü",
+        user_id: user.id,
+        user_name: user.user_metadata?.name ?? user.email,
+        created_at: now,
+      });
     }
 
     if (body.logAction) {

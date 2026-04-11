@@ -17,6 +17,7 @@ export default function StockScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
+  const isCustomer = role === "customer";
   const canEdit = role === "admin";
   const [activeTab, setActiveTab] = useState<TabKey>("glass");
 
@@ -24,9 +25,9 @@ export default function StockScreen() {
   const glassOutCount = glassStock.filter((g) => g.stock === 0).length;
   const glassLowCount = glassStock.filter((g) => g.stock > 0 && g.stock <= 2).length;
 
-  const consTotalStock = consumables.reduce((s, c) => s + c.stock, 0);
-  const consOutCount = consumables.filter((c) => c.stock === 0).length;
-  const consLowCount = consumables.filter((c) => c.stock > 0 && c.stock <= 3).length;
+  const consTotalStock = consumables.reduce((s, c) => s + Number(c.stock), 0);
+  const consOutCount = consumables.filter((c) => Number(c.stock) === 0).length;
+  const consLowCount = consumables.filter((c) => Number(c.stock) > 0 && Number(c.stock) <= 3).length;
 
   const handleAdjustGlass = async (id: string, delta: number) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -43,6 +44,8 @@ export default function StockScreen() {
     usedCount: assemblies.filter((a) => a.glassProductIds.includes(g.id)).length,
   }));
 
+  const tabs: TabKey[] = isCustomer ? ["glass"] : ["glass", "consumables"];
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View
@@ -52,51 +55,53 @@ export default function StockScreen() {
         ]}
       >
         <Text style={[styles.pageTitle, { color: colors.foreground }]}>Stok Takibi</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Fiat Ducato — ISRI</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+          {isCustomer ? "Cam Stoku — ISRI" : "Fiat Ducato — ISRI"}
+        </Text>
 
-        {/* Tabs */}
-        <View style={[styles.tabRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-          {(["glass", "consumables"] as TabKey[]).map((t) => (
-            <Pressable
-              key={t}
-              onPress={() => setActiveTab(t)}
-              style={[
-                styles.tab,
-                activeTab === t && { backgroundColor: colors.card, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-              ]}
-            >
-              <Feather
-                name={t === "glass" ? "grid" : "droplet"}
-                size={14}
-                color={activeTab === t ? colors.primary : colors.mutedForeground}
-              />
-              <Text
+        {!isCustomer && (
+          <View style={[styles.tabRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            {tabs.map((t) => (
+              <Pressable
+                key={t}
+                onPress={() => setActiveTab(t)}
                 style={[
-                  styles.tabText,
-                  { color: activeTab === t ? colors.primary : colors.mutedForeground },
+                  styles.tab,
+                  activeTab === t && { backgroundColor: colors.card, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
                 ]}
               >
-                {t === "glass" ? "Cam Stoku" : "Sarf Malzeme"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+                <Feather
+                  name={t === "glass" ? "grid" : "droplet"}
+                  size={14}
+                  color={activeTab === t ? colors.primary : colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: activeTab === t ? colors.primary : colors.mutedForeground },
+                  ]}
+                >
+                  {t === "glass" ? "Cam Stoku" : "Sarf Malzeme"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === "glass" ? (
+        {(isCustomer || activeTab === "glass") ? (
           <>
-            {/* Glass summary */}
             <View style={styles.summaryRow}>
               <SummaryCard label="Toplam" value={glassTotalStock} color={colors.primary} colors={colors} />
               <SummaryCard label="Stok Yok" value={glassOutCount} color={glassOutCount > 0 ? colors.destructive : colors.success} colors={colors} />
               <SummaryCard label="Az Stok" value={glassLowCount} color={glassLowCount > 0 ? colors.warning : colors.success} colors={colors} />
             </View>
 
-            {!canEdit && <InfoBox colors={colors} />}
+            {!canEdit && <InfoBox text="Stok düzenleme sadece yöneticiler içindir." colors={colors} />}
 
             {usageCounts.map((g) => {
               const isLow = g.stock > 0 && g.stock <= 2;
@@ -120,18 +125,18 @@ export default function StockScreen() {
           </>
         ) : (
           <>
-            {/* Consumables summary */}
             <View style={styles.summaryRow}>
               <SummaryCard label="Toplam" value={consTotalStock} color={colors.primary} colors={colors} />
               <SummaryCard label="Stok Yok" value={consOutCount} color={consOutCount > 0 ? colors.destructive : colors.success} colors={colors} />
               <SummaryCard label="Az Stok" value={consLowCount} color={consLowCount > 0 ? colors.warning : colors.success} colors={colors} />
             </View>
 
-            {!canEdit && <InfoBox colors={colors} />}
+            {!canEdit && <InfoBox text="Stok düzenleme sadece yöneticiler içindir." colors={colors} />}
 
             {consumables.map((c) => {
-              const isLow = c.stock > 0 && c.stock <= 3;
-              const isOut = c.stock === 0;
+              const stockNum = Number(c.stock);
+              const isLow = stockNum > 0 && stockNum <= 3;
+              const isOut = stockNum === 0;
               const statusColor = isOut ? colors.destructive : isLow ? colors.warning : colors.success;
               const categoryIcon: any = c.category === "chemical" ? "droplet" : c.category === "tool" ? "tool" : "box";
               return (
@@ -139,7 +144,7 @@ export default function StockScreen() {
                   key={c.id}
                   name={c.name}
                   code={c.unit}
-                  stock={c.stock}
+                  stock={stockNum}
                   unit={c.unit}
                   meta={c.category === "chemical" ? "Kimyasal" : c.category === "tool" ? "Alet/Ekipman" : "Diğer"}
                   statusColor={statusColor}
@@ -147,6 +152,7 @@ export default function StockScreen() {
                   onAdjust={(d) => handleAdjustCons(c.id, d)}
                   colors={colors}
                   icon={categoryIcon}
+                  decimals={c.category === "chemical"}
                 />
               );
             })}
@@ -160,29 +166,28 @@ export default function StockScreen() {
 function SummaryCard({ label, value, color, colors }: { label: string; value: number; color: string; colors: any }) {
   return (
     <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+      <Text style={[styles.summaryValue, { color }]}>{Number.isInteger(value) ? value : value.toFixed(1)}</Text>
       <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>{label}</Text>
     </View>
   );
 }
 
-function InfoBox({ colors }: { colors: any }) {
+function InfoBox({ text, colors }: { text: string; colors: any }) {
   return (
     <View style={[styles.infoBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
       <Feather name="info" size={13} color={colors.mutedForeground} />
-      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-        Stok düzenleme sadece yöneticiler içindir.
-      </Text>
+      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{text}</Text>
     </View>
   );
 }
 
 function StockItemCard({
-  name, code, stock, unit, meta, statusColor, canEdit, onAdjust, colors, icon
+  name, code, stock, unit, meta, statusColor, canEdit, onAdjust, colors, icon, decimals,
 }: {
   name: string; code: string; stock: number; unit: string; meta: string;
-  statusColor: string; canEdit: boolean; onAdjust: (d: number) => void; colors: any; icon?: string;
+  statusColor: string; canEdit: boolean; onAdjust: (d: number) => void; colors: any; icon?: string; decimals?: boolean;
 }) {
+  const displayStock = decimals ? stock.toFixed(1) : String(stock);
   return (
     <View
       style={[
@@ -201,7 +206,7 @@ function StockItemCard({
           </Text>
         </View>
         <View style={[styles.stockIndicator, { backgroundColor: statusColor + "15", borderColor: statusColor + "40" }]}>
-          <Text style={[styles.stockCount, { color: statusColor }]}>{stock}</Text>
+          <Text style={[styles.stockCount, { color: statusColor }]}>{displayStock}</Text>
           <Text style={[styles.stockUnit, { color: statusColor }]}>{unit}</Text>
         </View>
       </View>
