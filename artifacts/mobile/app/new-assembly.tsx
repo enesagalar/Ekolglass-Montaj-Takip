@@ -137,24 +137,29 @@ export default function NewAssemblyScreen() {
     setLoading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const assignedUser = users.find((u) => u.name === assignedTo);
-    const rec = addAssembly({
-      vehicleModel: selectedBrand.id,
-      vin: `XXXXX${vinLast5.toUpperCase()}`,
-      vinLast5: vinLast5.toUpperCase(),
-      approvalDocPhotoUri: approvalDocUri,
-      vinPhotoUri,
-      glassProductIds: selectedGlassIds,
-      assignedTo,
-      assignedToUserId: assignedUser?.id,
-      notes: notes.trim(),
-      status: "pending" as AssemblyStatus,
-      statusTimestamps: {},
-      photos: [],
-      defects: [],
-    });
-    setLoading(false);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace({ pathname: "/assembly/[id]", params: { id: rec.id } });
+    try {
+      const rec = await addAssembly({
+        vehicleModel: selectedBrand.id,
+        vin: `XXXXX${vinLast5.toUpperCase()}`,
+        vinLast5: vinLast5.toUpperCase(),
+        approvalDocPhotoUri: approvalDocUri,
+        vinPhotoUri,
+        glassProductIds: selectedGlassIds,
+        assignedTo,
+        assignedToUserId: assignedUser?.id,
+        notes: notes.trim(),
+        status: "pending" as AssemblyStatus,
+        statusTimestamps: {},
+        photos: [],
+        defects: [],
+      });
+      setLoading(false);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace({ pathname: "/assembly/[id]", params: { id: rec.id } });
+    } catch (err: any) {
+      setLoading(false);
+      Alert.alert("Hata", err.message ?? "Kayıt oluşturulamadı.");
+    }
   };
 
   const renderProgressBar = () => (

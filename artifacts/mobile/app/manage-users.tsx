@@ -68,12 +68,17 @@ export default function ManageUsersScreen() {
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    if (editingId) {
-      const updates: Partial<AppUser> = { username: form.username.trim(), name: form.name.trim(), role: form.role };
-      if (form.password) updates.password = form.password;
-      updateUser(editingId, updates);
-    } else {
-      addUser({ username: form.username.trim(), password: form.password, name: form.name.trim(), role: form.role, active: true });
+    try {
+      if (editingId) {
+        const updates: Partial<AppUser> = { username: form.username.trim(), name: form.name.trim(), role: form.role };
+        if (form.password) (updates as any).password = form.password;
+        await updateUser(editingId, updates);
+      } else {
+        await addUser({ username: form.username.trim(), password: form.password, name: form.name.trim(), role: form.role, active: true });
+      }
+    } catch (err: any) {
+      setFormError(err.message ?? "Kayıt başarısız.");
+      return;
     }
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

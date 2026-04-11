@@ -125,7 +125,7 @@ export default function AssemblyDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getAssembly, updateAssembly, addPhoto, addDefect, updateDefect, deleteAssembly, role, currentUser, getGlassProduct } = useApp();
+  const { getAssembly, updateAssembly, addPhoto, addPhotos, addDefect, updateDefect, deleteAssembly, role, currentUser, getGlassProduct } = useApp();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -217,25 +217,23 @@ export default function AssemblyDetailScreen() {
     const nextIdx = captureFlow.currentIdx + 1;
 
     if (nextIdx >= captureFlow.steps.length) {
-      const now = new Date().toISOString();
-      const newPhotos: PhotoRecord[] = captureFlow.steps
-        .filter((s) => s.uri)
-        .map((s) => ({
-          id: `photo-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          uri: s.uri!,
-          type: s.photoType,
-          timestamp: now,
-          angle: s.angle,
-        }));
-      const updatedPhotoList = [...assembly.photos, ...newPhotos];
       const extraUpdates = captureFlow.extraUpdates ?? {};
-      updateAssembly(
-        assembly.id,
-        { status: captureFlow.pendingStatus, photos: updatedPhotoList, ...extraUpdates },
-        `Statü değiştirildi: ${STATUS_LABELS[captureFlow.pendingStatus]}`
-      );
-      setCaptureFlow(null);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const photosBatch = captureFlow.steps
+        .filter((s) => s.uri)
+        .map((s) => ({ uri: s.uri!, type: s.photoType, angle: s.angle }));
+
+      try {
+        await addPhotos(assembly.id, photosBatch);
+        await updateAssembly(
+          assembly.id,
+          { status: captureFlow.pendingStatus, ...extraUpdates },
+          `Statü değiştirildi: ${STATUS_LABELS[captureFlow.pendingStatus]}`
+        );
+        setCaptureFlow(null);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } else {
       setCaptureFlow({ ...captureFlow, currentIdx: nextIdx });
     }

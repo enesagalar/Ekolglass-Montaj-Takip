@@ -94,7 +94,7 @@ export default function PhotosScreen() {
           assemblyId: a.id,
           vinLast5: a.vinLast5,
           vehicleModel: a.vehicleModel,
-          capturedAt: p.capturedAt,
+          capturedAt: p.timestamp,
         });
       });
 

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { apiGet, apiPost, apiPatch, apiDelete, setTokens, clearTokens } from "../lib/api";
 
 export type UserRole = "field" | "admin" | "customer" | null;
 
@@ -16,7 +17,7 @@ export type AssemblyStatus =
 export interface AppUser {
   id: string;
   username: string;
-  password: string;
+  password?: string;
   name: string;
   role: "field" | "admin" | "customer";
   active: boolean;
@@ -84,15 +85,6 @@ export const DEFAULT_CONSUMABLES: Consumable[] = [
   { id: "c6", name: "Koruyucu Örtü", unit: "adet", stock: 0, category: "other" },
 ];
 
-export const DEFAULT_USERS: AppUser[] = [
-  { id: "u-admin", username: "admin", password: "admin123", name: "Sistem Yöneticisi", role: "admin", active: true, createdAt: new Date().toISOString() },
-  { id: "u-mehmet", username: "mehmet", password: "1234", name: "Mehmet Demir", role: "field", active: true, createdAt: new Date().toISOString() },
-  { id: "u-ali", username: "ali", password: "1234", name: "Ali Çelik", role: "field", active: true, createdAt: new Date().toISOString() },
-  { id: "u-hasan", username: "hasan", password: "1234", name: "Hasan Yıldız", role: "field", active: true, createdAt: new Date().toISOString() },
-  { id: "u-murat", username: "murat", password: "1234", name: "Murat Özkan", role: "field", active: true, createdAt: new Date().toISOString() },
-  { id: "u-isri", username: "isri", password: "isri2024", name: "ISRI", role: "customer", active: true, createdAt: new Date().toISOString() },
-];
-
 export const CUSTOMER_NAME = "ISRI";
 
 export type PhotoType =
@@ -155,157 +147,93 @@ export interface ActivityLogEntry {
   timestamp: string;
 }
 
+// Convert snake_case DB row to camelCase AssemblyRecord
+function dbRowToAssembly(row: any): AssemblyRecord {
+  return {
+    id: row.id,
+    vehicleModel: row.vehicle_model ?? "fiat-ducato",
+    vin: row.vin ?? "",
+    vinLast5: row.vin_last5 ?? row.vin?.slice(-5) ?? "",
+    approvalDocPhotoUri: row.approval_doc_photo_uri,
+    vinPhotoUri: row.vin_photo_uri,
+    glassProductIds: row.glass_product_ids ?? [],
+    assignedTo: row.assigned_to ?? "",
+    assignedToUserId: row.assigned_to_user_id,
+    status: row.status ?? "pending",
+    statusTimestamps: row.status_timestamps ?? {},
+    waterTestResult: row.water_test_result,
+    waterTestCustomerApproval: row.water_test_customer_approval,
+    photos: (row.photos ?? []).map((p: any): PhotoRecord => ({
+      id: p.id,
+      uri: p.uri,
+      type: p.type,
+      timestamp: p.created_at,
+      note: p.note,
+      angle: p.angle,
+    })),
+    defects: (row.defects ?? []).map((d: any): DefectRecord => ({
+      id: d.id,
+      description: d.description,
+      severity: d.severity,
+      resolved: d.resolved,
+      timestamp: d.created_at,
+    })),
+    notes: row.notes ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+    installationCompletedAt: row.installation_completed_at,
+    activityLog: (row.activity_log ?? []).map((l: any): ActivityLogEntry => ({
+      id: l.id,
+      action: l.action,
+      userId: l.user_id ?? "",
+      userName: l.user_name ?? "",
+      timestamp: l.created_at,
+    })),
+  };
+}
+
+function dbRowToStock(row: any): GlassProduct {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    suffix: row.suffix,
+    stock: row.stock ?? 0,
+  };
+}
+
 interface AppContextType {
   currentUser: AppUser | null;
   role: UserRole;
   users: AppUser[];
+  isLoading: boolean;
+  apiError: string | null;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
-  addUser: (user: Omit<AppUser, "id" | "createdAt">) => void;
-  updateUser: (id: string, updates: Partial<AppUser>) => void;
-  deleteUser: (id: string) => void;
+  logout: () => Promise<void>;
+  addUser: (user: Omit<AppUser, "id" | "createdAt">) => Promise<void>;
+  updateUser: (id: string, updates: Partial<AppUser>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   assemblies: AssemblyRecord[];
   glassStock: GlassProduct[];
   consumables: Consumable[];
-  addAssembly: (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => AssemblyRecord;
-  updateAssembly: (id: string, updates: Partial<AssemblyRecord>, logAction?: string) => void;
-  deleteAssembly: (id: string) => void;
+  addAssembly: (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => Promise<AssemblyRecord>;
+  updateAssembly: (id: string, updates: Partial<AssemblyRecord>, logAction?: string) => Promise<void>;
+  deleteAssembly: (id: string) => Promise<void>;
   getAssembly: (id: string) => AssemblyRecord | undefined;
-  addPhoto: (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => void;
-  addDefect: (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => void;
-  updateDefect: (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => void;
-  updateStock: (productId: string, delta: number) => void;
-  updateConsumable: (consumableId: string, delta: number) => void;
+  addPhoto: (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => Promise<void>;
+  addPhotos: (assemblyId: string, photos: Omit<PhotoRecord, "id" | "timestamp">[]) => Promise<void>;
+  addDefect: (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => Promise<void>;
+  updateDefect: (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => Promise<void>;
+  updateStock: (productId: string, delta: number) => Promise<void>;
+  updateConsumable: (consumableId: string, delta: number) => Promise<void>;
   getGlassProduct: (id: string) => GlassProduct | undefined;
+  refreshAssemblies: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = "@cam_montaj_assemblies_v6";
-const STOCK_KEY = "@cam_montaj_stock_v6";
-const CONSUMABLES_KEY = "@cam_montaj_consumables_v2";
-const USERS_KEY = "@cam_montaj_users_v1";
-const SESSION_KEY = "@cam_montaj_session_v1";
-
-const DEMO_ASSEMBLIES: AssemblyRecord[] = [
-  {
-    id: "asm-001",
-    vehicleModel: "fiat-ducato",
-    vin: "VF3YHWMFB13459001", vinLast5: "59001",
-    glassProductIds: ["g1", "g2"],
-    assignedTo: "Mehmet Demir", assignedToUserId: "u-mehmet",
-    status: "installation",
-    statusTimestamps: {
-      pending: new Date(Date.now() - 4 * 3600000).toISOString(),
-      cutting: new Date(Date.now() - 3.5 * 3600000).toISOString(),
-      cutting_done: new Date(Date.now() - 2.5 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 2 * 3600000).toISOString(),
-    },
-    photos: [], defects: [],
-    notes: "Sağ taraf yan camlar değişimi.",
-    createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    id: "asm-002",
-    vehicleModel: "opel-movano",
-    vin: "VF3YHWMFB13459002", vinLast5: "59002",
-    glassProductIds: ["g4"],
-    assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
-    status: "water_test",
-    statusTimestamps: {
-      pending: new Date(Date.now() - 9 * 3600000).toISOString(),
-      cutting: new Date(Date.now() - 8 * 3600000).toISOString(),
-      cutting_done: new Date(Date.now() - 7 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 6 * 3600000).toISOString(),
-      installation_done: new Date(Date.now() - 5 * 3600000).toISOString(),
-      water_test: new Date(Date.now() - 4.5 * 3600000).toISOString(),
-    },
-    installationCompletedAt: new Date(Date.now() - 5 * 3600000).toISOString(),
-    waterTestCustomerApproval: "pending",
-    photos: [],
-    defects: [{ id: "def-001", description: "Sol köşede küçük çizik", severity: "low", resolved: true, timestamp: new Date(Date.now() - 3600000).toISOString() }],
-    notes: "Sol 1. yan cam.",
-    createdAt: new Date(Date.now() - 9 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 4.5 * 3600000).toISOString(),
-  },
-  {
-    id: "asm-003",
-    vehicleModel: "peugeot-boxer",
-    vin: "VF3YHWMFB13459003", vinLast5: "59003",
-    glassProductIds: ["g7", "g8"],
-    assignedTo: "Hasan Yıldız", assignedToUserId: "u-hasan",
-    status: "completed",
-    statusTimestamps: {
-      pending: new Date(Date.now() - 26 * 3600000).toISOString(),
-      cutting: new Date(Date.now() - 25 * 3600000).toISOString(),
-      cutting_done: new Date(Date.now() - 24 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 23 * 3600000).toISOString(),
-      installation_done: new Date(Date.now() - 20 * 3600000).toISOString(),
-      water_test: new Date(Date.now() - 12 * 3600000).toISOString(),
-      completed: new Date(Date.now() - 6 * 3600000).toISOString(),
-    },
-    photos: [], defects: [],
-    notes: "", waterTestResult: "passed",
-    createdAt: new Date(Date.now() - 26 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
-    completedAt: new Date(Date.now() - 6 * 3600000).toISOString(),
-  },
-  {
-    id: "asm-004",
-    vehicleModel: "fiat-ducato",
-    vin: "VF3YHWMFB13459004", vinLast5: "59004",
-    glassProductIds: ["g2"],
-    assignedTo: "Ali Çelik", assignedToUserId: "u-ali",
-    status: "cutting_done",
-    statusTimestamps: {
-      pending: new Date(Date.now() - 3 * 3600000).toISOString(),
-      cutting: new Date(Date.now() - 2.5 * 3600000).toISOString(),
-      cutting_done: new Date(Date.now() - 45 * 60000).toISOString(),
-    },
-    photos: [], defects: [],
-    notes: "Sağ 2. yan cam.",
-    createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 45 * 60000).toISOString(),
-  },
-  {
-    id: "asm-005",
-    vehicleModel: "citroen-jumpy",
-    vin: "VF3YHWMFB13459005", vinLast5: "59005",
-    glassProductIds: ["g3", "g6"],
-    assignedTo: "Murat Özkan", assignedToUserId: "u-murat",
-    status: "water_test_failed",
-    statusTimestamps: {
-      pending: new Date(Date.now() - 10 * 3600000).toISOString(),
-      cutting: new Date(Date.now() - 9 * 3600000).toISOString(),
-      cutting_done: new Date(Date.now() - 8 * 3600000).toISOString(),
-      installation: new Date(Date.now() - 7 * 3600000).toISOString(),
-      installation_done: new Date(Date.now() - 5 * 3600000).toISOString(),
-      water_test: new Date(Date.now() - 3 * 3600000).toISOString(),
-      water_test_failed: new Date(Date.now() - 2 * 3600000).toISOString(),
-    },
-    photos: [],
-    defects: [{ id: "def-002", description: "Sızdırmazlık yetersiz", severity: "high", resolved: false, timestamp: new Date(Date.now() - 2 * 3600000).toISOString() }],
-    notes: "Su testinden kaldı.",
-    createdAt: new Date(Date.now() - 10 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    id: "asm-006",
-    vehicleModel: "opel-movano",
-    vin: "VF3YHWMFB13459006", vinLast5: "59006",
-    glassProductIds: ["g5"],
-    assignedTo: "Hasan Yıldız", assignedToUserId: "u-hasan",
-    status: "pending",
-    statusTimestamps: {
-      pending: new Date(Date.now() - 20 * 60000).toISOString(),
-    },
-    photos: [], defects: [],
-    notes: "",
-    createdAt: new Date(Date.now() - 20 * 60000).toISOString(),
-    updatedAt: new Date(Date.now() - 20 * 60000).toISOString(),
-  },
-];
+const SESSION_KEY = "@cam_montaj_session_v2";
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -313,224 +241,263 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
   const [glassStock, setGlassStock] = useState<GlassProduct[]>(GLASS_POSITIONS);
   const [consumables, setConsumables] = useState<Consumable[]>(DEFAULT_CONSUMABLES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const loadAssemblies = useCallback(async () => {
+    try {
+      const data = await apiGet<any[]>("/assemblies");
+      setAssemblies(data.map(dbRowToAssembly));
+    } catch (err) {
+      // silently fail on background refresh
+    }
+  }, []);
+
+  const loadStock = useCallback(async () => {
+    try {
+      const [stockData, consumablesData] = await Promise.all([
+        apiGet<any[]>("/stock"),
+        apiGet<any[]>("/consumables"),
+      ]);
+      setGlassStock(stockData.map(dbRowToStock));
+      setConsumables(consumablesData.map((c: any): Consumable => ({
+        id: c.id,
+        name: c.name,
+        unit: c.unit,
+        stock: c.stock ?? 0,
+        category: c.category,
+      })));
+    } catch {
+      // keep defaults
+    }
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await apiGet<any[]>("/users");
+      setUsers(data.map((u: any): AppUser => ({
+        id: u.id,
+        username: u.username,
+        name: u.name,
+        role: u.role,
+        active: u.active,
+        createdAt: u.created_at,
+      })));
+    } catch {
+      // non-admin: ignore
+    }
+  }, []);
+
+  // Restore session from storage
   useEffect(() => {
-    const load = async () => {
+    const restore = async () => {
       try {
-        const [savedSession, savedUsers, savedAssemblies, savedStock, savedConsumables] =
-          await Promise.all([
-            AsyncStorage.getItem(SESSION_KEY),
-            AsyncStorage.getItem(USERS_KEY),
-            AsyncStorage.getItem(STORAGE_KEY),
-            AsyncStorage.getItem(STOCK_KEY),
-            AsyncStorage.getItem(CONSUMABLES_KEY),
-          ]);
-
-        let userList: AppUser[];
-        if (savedUsers) {
-          userList = JSON.parse(savedUsers);
-        } else {
-          userList = DEFAULT_USERS;
-          await AsyncStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
-        }
-        setUsers(userList);
-
-        if (savedSession) {
-          const found = userList.find((u) => u.id === savedSession && u.active);
-          if (found) setCurrentUser(found);
-        }
-
-        if (savedAssemblies) {
-          const parsed: AssemblyRecord[] = JSON.parse(savedAssemblies);
-          setAssemblies(parsed.map((a) => ({
-            ...a,
-            vehicleModel: a.vehicleModel ?? "fiat-ducato",
-            vinLast5: a.vinLast5 ?? a.vin?.slice(-5) ?? "",
-            statusTimestamps: a.statusTimestamps ?? {},
-          })));
-        } else {
-          setAssemblies(DEMO_ASSEMBLIES);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_ASSEMBLIES));
-        }
-
-        if (savedStock) {
-          const parsed: GlassProduct[] = JSON.parse(savedStock);
-          setGlassStock(parsed.map((g) => {
-            const pos = GLASS_POSITIONS.find((p) => p.id === g.id);
-            return { ...g, suffix: pos?.suffix ?? g.code.split(" ").pop() ?? "R1" };
-          }));
-        } else {
-          const init = GLASS_POSITIONS.map((g) => ({ ...g, stock: 8 }));
-          setGlassStock(init);
-          await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(init));
-        }
-
-        if (savedConsumables) setConsumables(JSON.parse(savedConsumables));
-        else {
-          const init = DEFAULT_CONSUMABLES.map((c) => ({ ...c, stock: 20 }));
-          setConsumables(init);
-          await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(init));
+        const saved = await AsyncStorage.getItem(SESSION_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as AppUser;
+          setCurrentUser(parsed);
+          await Promise.all([loadAssemblies(), loadStock(), loadUsers()]);
         }
       } catch {
-        setAssemblies(DEMO_ASSEMBLIES);
-        setUsers(DEFAULT_USERS);
+        // fresh start
+      } finally {
+        setIsLoading(false);
       }
     };
-    load();
+    restore();
   }, []);
 
-  const saveAssemblies = useCallback(async (updated: AssemblyRecord[]) => {
-    setAssemblies(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  }, []);
-
-  const saveStock = useCallback(async (updated: GlassProduct[]) => {
-    setGlassStock(updated);
-    await AsyncStorage.setItem(STOCK_KEY, JSON.stringify(updated));
-  }, []);
-
-  const saveConsumables = useCallback(async (updated: Consumable[]) => {
-    setConsumables(updated);
-    await AsyncStorage.setItem(CONSUMABLES_KEY, JSON.stringify(updated));
-  }, []);
-
-  const saveUsers = useCallback(async (updated: AppUser[]) => {
-    setUsers(updated);
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(updated));
-  }, []);
+  // Poll assemblies every 30s when logged in
+  useEffect(() => {
+    if (!currentUser) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      return;
+    }
+    pollingRef.current = setInterval(loadAssemblies, 30000);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [currentUser, loadAssemblies]);
 
   const login = useCallback(async (username: string, password: string) => {
-    const trimmed = username.trim().toLowerCase();
-    const found = users.find(
-      (u) => u.username.toLowerCase() === trimmed && u.password === password && u.active
-    );
-    if (!found) return { success: false, message: "Kullanıcı adı veya şifre hatalı." };
-    setCurrentUser(found);
-    await AsyncStorage.setItem(SESSION_KEY, found.id);
-    return { success: true };
-  }, [users]);
+    try {
+      setApiError(null);
+      const data = await apiPost<{ token: string; refresh_token: string; user: any }>(
+        "/auth/login",
+        { username, password }
+      );
+      await setTokens(data.token, data.refresh_token);
+      const user: AppUser = {
+        id: data.user.id,
+        username: data.user.username,
+        name: data.user.name,
+        role: data.user.role,
+        active: true,
+        createdAt: new Date().toISOString(),
+      };
+      setCurrentUser(user);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(user));
+      await Promise.all([loadAssemblies(), loadStock(), loadUsers()]);
+      return { success: true };
+    } catch (err: any) {
+      const msg = err.message ?? "Giriş başarısız.";
+      setApiError(msg);
+      return { success: false, message: msg };
+    }
+  }, [loadAssemblies, loadStock, loadUsers]);
 
   const logout = useCallback(async () => {
-    setCurrentUser(null);
+    try {
+      await apiPost("/auth/logout");
+    } catch {
+      // ignore
+    }
+    await clearTokens();
     await AsyncStorage.removeItem(SESSION_KEY);
+    setCurrentUser(null);
+    setAssemblies([]);
   }, []);
 
-  const addUser = useCallback((user: Omit<AppUser, "id" | "createdAt">) => {
-    const newUser: AppUser = { ...user, id: `u-${Date.now()}`, createdAt: new Date().toISOString() };
-    saveUsers([...users, newUser]);
-  }, [users, saveUsers]);
+  const addUser = useCallback(async (user: Omit<AppUser, "id" | "createdAt">) => {
+    const data = await apiPost<any>("/users", {
+      username: user.username,
+      password: (user as any).password ?? "1234",
+      name: user.name,
+      role: user.role,
+    });
+    const newUser: AppUser = {
+      id: data.id,
+      username: data.username,
+      name: data.name,
+      role: data.role,
+      active: data.active,
+      createdAt: data.created_at,
+    };
+    setUsers((prev) => [...prev, newUser]);
+  }, []);
 
-  const updateUser = useCallback((id: string, updates: Partial<AppUser>) => {
-    const updated = users.map((u) => u.id === id ? { ...u, ...updates } : u);
-    saveUsers(updated);
-    if (currentUser?.id === id) {
-      const refreshed = updated.find((u) => u.id === id);
-      if (refreshed) setCurrentUser(refreshed);
-    }
-  }, [users, currentUser, saveUsers]);
+  const updateUser = useCallback(async (id: string, updates: Partial<AppUser>) => {
+    await apiPatch(`/users/${id}`, updates);
+    setUsers((prev) => prev.map((u) => u.id === id ? { ...u, ...updates } : u));
+  }, []);
 
-  const deleteUser = useCallback((id: string) => {
-    saveUsers(users.filter((u) => u.id !== id));
-  }, [users, saveUsers]);
+  const deleteUser = useCallback(async (id: string) => {
+    await apiDelete(`/users/${id}`);
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  }, []);
 
-  const addAssembly = useCallback(
-    (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">) => {
-      const now = new Date().toISOString();
-      const logEntry: ActivityLogEntry = {
-        id: `log-${Date.now()}`, action: "Kayıt oluşturuldu",
-        userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now,
+  const addAssembly = useCallback(async (data: Omit<AssemblyRecord, "id" | "createdAt" | "updatedAt">): Promise<AssemblyRecord> => {
+    const row = await apiPost<any>("/assemblies", data);
+    const record = dbRowToAssembly(row);
+    setAssemblies((prev) => [record, ...prev]);
+    return record;
+  }, []);
+
+  const updateAssembly = useCallback(async (id: string, updates: Partial<AssemblyRecord>, logAction?: string) => {
+    const row = await apiPatch<any>(`/assemblies/${id}`, { ...updates, logAction });
+    const updated = dbRowToAssembly(row);
+    setAssemblies((prev) => prev.map((a) => {
+      if (a.id !== id) return a;
+      // Merge to keep local photos/defects optimistically
+      return {
+        ...a,
+        ...updated,
+        photos: updated.photos.length > 0 ? updated.photos : a.photos,
+        defects: updated.defects.length > 0 ? updated.defects : a.defects,
       };
-      const newRecord: AssemblyRecord = {
-        ...data,
-        id: `asm-${Date.now()}`, createdAt: now, updatedAt: now,
-        statusTimestamps: { pending: now, ...data.statusTimestamps },
-        activityLog: [logEntry],
-      };
-      saveAssemblies([newRecord, ...assemblies]);
-      const updatedStock = glassStock.map((g) =>
-        data.glassProductIds.includes(g.id) ? { ...g, stock: Math.max(0, g.stock - 1) } : g
-      );
-      saveStock(updatedStock);
-      return newRecord;
-    },
-    [assemblies, glassStock, currentUser, saveAssemblies, saveStock]
-  );
+    }));
+  }, []);
 
-  const updateAssembly = useCallback(
-    (id: string, updates: Partial<AssemblyRecord>, logAction?: string) => {
-      const now = new Date().toISOString();
-      const updated = assemblies.map((a) => {
-        if (a.id !== id) return a;
-        const log = logAction
-          ? [...(a.activityLog ?? []), { id: `log-${Date.now()}`, action: logAction, userId: currentUser?.id ?? "", userName: currentUser?.name ?? "Bilinmiyor", timestamp: now }]
-          : a.activityLog;
-        const statusTimestamps = { ...a.statusTimestamps };
-        if (updates.status && updates.status !== a.status) {
-          statusTimestamps[updates.status] = now;
-        }
-        return { ...a, ...updates, updatedAt: now, activityLog: log, statusTimestamps };
-      });
-      saveAssemblies(updated);
-    },
-    [assemblies, currentUser, saveAssemblies]
-  );
-
-  const deleteAssembly = useCallback(
-    (id: string) => saveAssemblies(assemblies.filter((a) => a.id !== id)),
-    [assemblies, saveAssemblies]
-  );
+  const deleteAssembly = useCallback(async (id: string) => {
+    await apiDelete(`/assemblies/${id}`);
+    setAssemblies((prev) => prev.filter((a) => a.id !== id));
+  }, []);
 
   const getAssembly = useCallback((id: string) => assemblies.find((a) => a.id === id), [assemblies]);
 
-  const addPhoto = useCallback(
-    (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => {
-      const newPhoto: PhotoRecord = { ...photo, id: `photo-${Date.now()}`, timestamp: new Date().toISOString() };
-      saveAssemblies(assemblies.map((a) =>
-        a.id === assemblyId ? { ...a, photos: [...a.photos, newPhoto], updatedAt: new Date().toISOString() } : a
-      ));
-    },
-    [assemblies, saveAssemblies]
-  );
+  const addPhoto = useCallback(async (assemblyId: string, photo: Omit<PhotoRecord, "id" | "timestamp">) => {
+    const data = await apiPost<any>(`/assemblies/${assemblyId}/photos`, photo);
+    const newPhoto: PhotoRecord = {
+      id: data.id,
+      uri: data.uri,
+      type: data.type,
+      timestamp: data.created_at,
+      note: data.note,
+      angle: data.angle,
+    };
+    setAssemblies((prev) => prev.map((a) =>
+      a.id === assemblyId ? { ...a, photos: [...a.photos, newPhoto], updatedAt: new Date().toISOString() } : a
+    ));
+  }, []);
 
-  const addDefect = useCallback(
-    (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => {
-      const newDefect: DefectRecord = { ...defect, id: `def-${Date.now()}`, timestamp: new Date().toISOString() };
-      saveAssemblies(assemblies.map((a) =>
-        a.id === assemblyId ? { ...a, defects: [...a.defects, newDefect], updatedAt: new Date().toISOString() } : a
-      ));
-    },
-    [assemblies, saveAssemblies]
-  );
+  const addPhotos = useCallback(async (assemblyId: string, photos: Omit<PhotoRecord, "id" | "timestamp">[]) => {
+    const data = await apiPost<any[]>(`/assemblies/${assemblyId}/photos/bulk`, { photos });
+    const newPhotos: PhotoRecord[] = data.map((p) => ({
+      id: p.id,
+      uri: p.uri,
+      type: p.type,
+      timestamp: p.created_at,
+      note: p.note,
+      angle: p.angle,
+    }));
+    setAssemblies((prev) => prev.map((a) =>
+      a.id === assemblyId ? { ...a, photos: [...a.photos, ...newPhotos], updatedAt: new Date().toISOString() } : a
+    ));
+  }, []);
 
-  const updateDefect = useCallback(
-    (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => {
-      saveAssemblies(assemblies.map((a) =>
-        a.id === assemblyId
-          ? { ...a, defects: a.defects.map((d) => d.id === defectId ? { ...d, ...updates } : d), updatedAt: new Date().toISOString() }
-          : a
-      ));
-    },
-    [assemblies, saveAssemblies]
-  );
+  const addDefect = useCallback(async (assemblyId: string, defect: Omit<DefectRecord, "id" | "timestamp">) => {
+    const data = await apiPost<any>(`/assemblies/${assemblyId}/defects`, defect);
+    const newDefect: DefectRecord = {
+      id: data.id,
+      description: data.description,
+      severity: data.severity,
+      resolved: data.resolved,
+      timestamp: data.created_at,
+    };
+    setAssemblies((prev) => prev.map((a) =>
+      a.id === assemblyId ? { ...a, defects: [...a.defects, newDefect], updatedAt: new Date().toISOString() } : a
+    ));
+  }, []);
 
-  const updateStock = useCallback((productId: string, delta: number) => {
-    saveStock(glassStock.map((g) => g.id === productId ? { ...g, stock: Math.max(0, g.stock + delta) } : g));
-  }, [glassStock, saveStock]);
+  const updateDefect = useCallback(async (assemblyId: string, defectId: string, updates: Partial<DefectRecord>) => {
+    await apiPatch(`/assemblies/${assemblyId}/defects/${defectId}`, updates);
+    setAssemblies((prev) => prev.map((a) =>
+      a.id === assemblyId
+        ? { ...a, defects: a.defects.map((d) => d.id === defectId ? { ...d, ...updates } : d) }
+        : a
+    ));
+  }, []);
 
-  const updateConsumable = useCallback((consumableId: string, delta: number) => {
-    saveConsumables(consumables.map((c) => c.id === consumableId ? { ...c, stock: Math.max(0, c.stock + delta) } : c));
-  }, [consumables, saveConsumables]);
+  const updateStock = useCallback(async (productId: string, delta: number) => {
+    await apiPatch(`/stock/${productId}`, { delta });
+    setGlassStock((prev) => prev.map((g) =>
+      g.id === productId ? { ...g, stock: Math.max(0, g.stock + delta) } : g
+    ));
+  }, []);
 
-  const getGlassProduct = useCallback((id: string) => glassStock.find((g) => g.id === id), [glassStock]);
+  const updateConsumable = useCallback(async (consumableId: string, delta: number) => {
+    await apiPatch(`/consumables/${consumableId}`, { delta });
+    setConsumables((prev) => prev.map((c) =>
+      c.id === consumableId ? { ...c, stock: Math.max(0, c.stock + delta) } : c
+    ));
+  }, []);
+
+  const refreshAssemblies = useCallback(async () => {
+    await loadAssemblies();
+  }, [loadAssemblies]);
 
   const role: UserRole = currentUser?.role ?? null;
 
   return (
     <AppContext.Provider value={{
-      currentUser, role, users, login, logout, addUser, updateUser, deleteUser,
+      currentUser, role, users, isLoading, apiError,
+      login, logout, addUser, updateUser, deleteUser,
       assemblies, glassStock, consumables,
       addAssembly, updateAssembly, deleteAssembly, getAssembly,
-      addPhoto, addDefect, updateDefect, updateStock, updateConsumable, getGlassProduct,
+      addPhoto, addPhotos, addDefect, updateDefect,
+      updateStock, updateConsumable, getGlassProduct: (id) => glassStock.find((g) => g.id === id),
+      refreshAssemblies,
     }}>
       {children}
     </AppContext.Provider>
