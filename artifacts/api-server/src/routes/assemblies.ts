@@ -61,13 +61,17 @@ router.post("/assemblies", requireRole("field", "admin"), async (req, res) => {
     const body = req.body;
     const now = new Date().toISOString();
 
+    const role = user.user_metadata?.role;
+    // For field users, ensure assigned_to_user_id is always their own ID
+    const assignedToUserId = body.assignedToUserId ?? (role === "field" ? user.id : undefined);
+
     const record = {
       vehicle_model: body.vehicleModel,
       vin: body.vin,
       vin_last5: body.vinLast5 ?? body.vin?.slice(-5),
       glass_product_ids: body.glassProductIds ?? [],
       assigned_to: body.assignedTo,
-      assigned_to_user_id: body.assignedToUserId,
+      assigned_to_user_id: assignedToUserId,
       status: "pending",
       status_timestamps: { pending: now },
       water_test_result: null,

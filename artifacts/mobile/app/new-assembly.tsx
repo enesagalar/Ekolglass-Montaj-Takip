@@ -137,6 +137,9 @@ export default function NewAssemblyScreen() {
     setLoading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const assignedUser = users.find((u) => u.name === assignedTo);
+    // Field users don't have access to the users list (403), so fall back to currentUser.id
+    // This ensures assigned_to_user_id is always set so the server-side filter works
+    const assignedToUserId = assignedUser?.id ?? (role === "field" ? currentUser?.id : undefined);
     try {
       const rec = await addAssembly({
         vehicleModel: selectedBrand.id,
@@ -146,7 +149,7 @@ export default function NewAssemblyScreen() {
         vinPhotoUri,
         glassProductIds: selectedGlassIds,
         assignedTo,
-        assignedToUserId: assignedUser?.id,
+        assignedToUserId,
         notes: notes.trim(),
         status: "pending" as AssemblyStatus,
         statusTimestamps: {},
