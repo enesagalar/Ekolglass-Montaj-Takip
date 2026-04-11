@@ -2,9 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const getApiBase = (): string => {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  const replId = process.env.EXPO_PUBLIC_REPL_ID;
-  if (domain && replId) {
-    return `https://${domain}/api-server/api`;
+  if (domain) {
+    return `https://${domain}/api`;
   }
   return "/api";
 };
