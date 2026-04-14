@@ -87,6 +87,8 @@ router.post("/assemblies", requireRole("field", "admin"), async (req, res) => {
       glass_product_ids: body.glassProductIds ?? [],
       assigned_to: body.assignedTo,
       assigned_to_user_id: assignedToUserId,
+      approval_doc_photo_uri: body.approvalDocPhotoUri ?? null,
+      vin_photo_uri: body.vinPhotoUri ?? null,
       status: "pending",
       status_timestamps: { pending: now },
       water_test_result: null,

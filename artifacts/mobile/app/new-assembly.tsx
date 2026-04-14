@@ -26,6 +26,7 @@ import {
   useApp,
 } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { uploadPhoto } from "@/lib/upload";
 
 const TOTAL_STEPS = 4;
 
@@ -142,12 +143,17 @@ export default function NewAssemblyScreen() {
     // For field: users[] is empty (403), so let the server look up their app_users.id via auth_id.
     const assignedToUserId = role === "field" ? undefined : assignedUser?.id;
     try {
+      const [uploadedApprovalUri, uploadedVinUri] = await Promise.all([
+        approvalDocUri ? uploadPhoto(approvalDocUri, "approvals") : Promise.resolve(undefined),
+        vinPhotoUri ? uploadPhoto(vinPhotoUri, "vin") : Promise.resolve(undefined),
+      ]);
+
       const rec = await addAssembly({
         vehicleModel: selectedBrand.id,
         vin: `XXXXX${vinLast5.toUpperCase()}`,
         vinLast5: vinLast5.toUpperCase(),
-        approvalDocPhotoUri: approvalDocUri,
-        vinPhotoUri,
+        approvalDocPhotoUri: uploadedApprovalUri,
+        vinPhotoUri: uploadedVinUri,
         glassProductIds: selectedGlassIds,
         assignedTo,
         assignedToUserId,

@@ -5,6 +5,7 @@ import assembliesRouter from "./assemblies.js";
 import usersRouter from "./users.js";
 import stockRouter from "./stock.js";
 import glassRequestsRouter from "./glass-requests.js";
+import uploadRouter from "./upload.js";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(assembliesRouter);
 router.use(usersRouter);
 router.use(stockRouter);
 router.use(glassRequestsRouter);
+router.use(uploadRouter);
 
 export default router;

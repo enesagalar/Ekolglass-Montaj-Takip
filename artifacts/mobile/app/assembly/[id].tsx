@@ -28,6 +28,7 @@ import {
   useApp,
 } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { uploadPhotos } from "@/lib/upload";
 
 const STATUS_FLOW: AssemblyStatus[] = [
   "pending",
@@ -218,11 +219,18 @@ export default function AssemblyDetailScreen() {
 
     if (nextIdx >= captureFlow.steps.length) {
       const extraUpdates = captureFlow.extraUpdates ?? {};
-      const photosBatch = captureFlow.steps
-        .filter((s) => s.uri)
-        .map((s) => ({ uri: s.uri!, type: s.photoType, angle: s.angle }));
+      const localSteps = captureFlow.steps.filter((s) => s.uri);
 
       try {
+        const uploadedUrls = await uploadPhotos(
+          localSteps.map((s) => ({ uri: s.uri!, folder: "assemblies" }))
+        );
+        const photosBatch = localSteps.map((s, i) => ({
+          uri: uploadedUrls[i],
+          type: s.photoType,
+          angle: s.angle,
+        }));
+
         await addPhotos(assembly.id, photosBatch);
         await updateAssembly(
           assembly.id,
