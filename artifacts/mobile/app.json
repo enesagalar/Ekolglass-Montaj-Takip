@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "EKOLGLASS MONTAJ TAKİP",
+    "name": "Ekolglass Montaj Takip",
     "slug": "ekolglassmontajtakip",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,10 +15,23 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ekolglassmontajtakip.app"
+      "bundleIdentifier": "com.ekolglassmontajtakip.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Montaj fotoğrafları ve onay belgesi çekmek için kamera erişimi gereklidir.",
+        "NSPhotoLibraryUsageDescription": "Montaj fotoğraflarını galeriden seçmek için erişim gereklidir.",
+        "NSPhotoLibraryAddUsageDescription": "Montaj fotoğraflarını kaydetmek için erişim gereklidir."
+      }
     },
     "android": {
-      "package": "com.ekolglassmontajtakip.app"
+      "package": "com.ekolglassmontajtakip.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -26,16 +39,26 @@
     "plugins": [
       [
         "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
+        {}
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Montaj fotoğraflarını galeriden seçmek için erişim gereklidir.",
+          "cameraPermission": "Montaj fotoğrafları ve onay belgesi çekmek için kamera erişimi gereklidir."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     }
   }
 }
