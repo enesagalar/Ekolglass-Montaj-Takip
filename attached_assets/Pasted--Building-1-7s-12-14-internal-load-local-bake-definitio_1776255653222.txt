@@ -1,0 +1,71 @@
+[+] Building 1.7s (12/14)
+ => [internal] load local bake definitions                                                                         0.0s
+ => => reading from stdin 493B                                                                                     0.0s
+ => [internal] load build definition from Dockerfile                                                               0.0s
+ => => transferring dockerfile: 631B                                                                               0.0s
+ => [internal] load metadata for docker.io/library/node:22-alpine                                                  0.6s
+ => [internal] load .dockerignore                                                                                  0.0s
+ => => transferring context: 2B                                                                                    0.0s
+ => [base 1/2] FROM docker.io/library/node:22-alpine@sha256:4d64b49e6c891c8fc821007cb1cdc6c0db7773110ac2c34bf2e69  0.0s
+ => => resolve docker.io/library/node:22-alpine@sha256:4d64b49e6c891c8fc821007cb1cdc6c0db7773110ac2c34bf2e6960ade  0.0s
+ => [internal] load build context                                                                                  0.0s
+ => => transferring context: 1.71kB                                                                                0.0s
+ => CACHED [base 2/2] WORKDIR /app                                                                                 0.0s
+ => CACHED [builder 1/5] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./                                   0.0s
+ => CACHED [builder 2/5] COPY artifacts/api-server/package.json ./artifacts/api-server/                            0.0s
+ => CACHED [builder 3/5] RUN corepack enable && pnpm install --frozen-lockfile --filter @workspace/api-server      0.0s
+ => CACHED [builder 4/5] COPY artifacts/api-server ./artifacts/api-server                                          0.0s
+ => ERROR [builder 5/5] RUN pnpm --filter @workspace/api-server run build                                          0.9s
+------
+ > [builder 5/5] RUN pnpm --filter @workspace/api-server run build:
+0.583
+0.583 > @workspace/api-server@0.0.0 build /app/artifacts/api-server
+0.583 > node ./build.mjs
+0.583
+0.677 ▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+0.677
+0.677     tsconfig.json:2:13:
+0.677       2 │   "extends": "../../tsconfig.base.json",
+0.677         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+0.677
+0.738 ✘ [ERROR] Could not resolve "@workspace/api-zod"
+0.738
+0.738     src/routes/health.ts:2:36:
+0.738       2 │ import { HealthCheckResponse } from "@workspace/api-zod";
+0.738         ╵                                     ~~~~~~~~~~~~~~~~~~~~
+0.738
+0.738   You can mark the path "@workspace/api-zod" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+0.738
+0.801 1 warning and 1 error
+0.805 Error: Build failed with 1 error:
+0.805 src/routes/health.ts:2:36: ERROR: Could not resolve "@workspace/api-zod"
+0.805     at failureErrorWithLog (/app/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/lib/main.js:1467:15)
+0.805     at /app/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/lib/main.js:926:25
+0.805     at /app/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/lib/main.js:1345:9
+0.805     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+0.805   errors: [Getter/Setter],
+0.805   warnings: [Getter/Setter]
+0.805 }
+0.821 /app/artifacts/api-server:
+0.821  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 build: `node ./build.mjs`
+0.821 Exit status 1
+------
+[+] up 0/1
+ ⠙ Image ekolglass-api Building                                                                                     1.7s
+Dockerfile:10
+
+--------------------
+
+   8 |
+
+   9 |     COPY artifacts/api-server ./artifacts/api-server
+
+  10 | >>> RUN pnpm --filter @workspace/api-server run build
+
+  11 |
+
+  12 |     FROM base AS runner
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm --filter @workspace/api-server run build" did not complete successfully: exit code: 1
