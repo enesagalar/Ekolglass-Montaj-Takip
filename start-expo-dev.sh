@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hetzner VPS'te Expo dev server başlatma scripti
+# Hetzner VPS'te Expo dev server başlatma scripti (tunnel modu)
 # Kullanım: bash start-expo-dev.sh
 
 set -e
@@ -35,17 +35,13 @@ cat > artifacts/mobile/.env <<EOF
 EXPO_PUBLIC_API_URL=${API_URL}
 EOF
 
-echo "API URL: ${API_URL}"
-
-# Portları aç
-ufw allow 8081 2>/dev/null || true
-ufw allow 19000 2>/dev/null || true
-
 echo ""
-echo "Expo başlatılıyor... QR kodu Expo Go ile tarayın."
+echo "API URL: ${API_URL}"
+echo ""
+echo "Expo başlatılıyor (tunnel modu)..."
+echo "Birkaç saniye bekleyin, QR kodu çıkacak."
 echo ""
 
 cd /opt/ekolglass/artifacts/mobile
-REACT_NATIVE_PACKAGER_HOSTNAME=${VPS_IP} \
 EXPO_PUBLIC_API_URL=${API_URL} \
-pnpm exec expo start --port 8081
+pnpm exec expo start --tunnel
