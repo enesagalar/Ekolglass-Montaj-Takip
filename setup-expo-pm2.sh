@@ -7,6 +7,7 @@ set -e
 VPS_IP="46.225.233.65"
 API_URL="http://${VPS_IP}:3000/api"
 APP_DIR="/opt/ekolglass"
+WRAPPER="$APP_DIR/run-expo.sh"
 
 echo "=== Expo pm2 Servis Kurulumu ==="
 
@@ -50,21 +51,27 @@ ufw allow 19000/tcp 2>/dev/null || true
 ufw allow 19001/tcp 2>/dev/null || true
 ufw allow 19002/tcp 2>/dev/null || true
 
+# Wrapper script oluştur
+cat > "$WRAPPER" <<EOF
+#!/bin/bash
+export REACT_NATIVE_PACKAGER_HOSTNAME=${VPS_IP}
+export EXPO_PUBLIC_API_URL=${API_URL}
+cd ${APP_DIR}/artifacts/mobile
+exec pnpm exec expo start --port 8081 --lan --non-interactive
+EOF
+chmod +x "$WRAPPER"
+
 # Mevcut pm2 prosesini durdur (varsa)
 pm2 delete expo-dev 2>/dev/null || true
 
 # pm2 ile başlat
 echo ""
 echo "Expo başlatılıyor (pm2)..."
-pm2 start \
-  --name "expo-dev" \
-  --cwd "$APP_DIR/artifacts/mobile" \
-  --interpreter bash \
-  -- -c "REACT_NATIVE_PACKAGER_HOSTNAME=${VPS_IP} EXPO_PUBLIC_API_URL=${API_URL} pnpm exec expo start --port 8081 --lan --non-interactive"
+pm2 start "$WRAPPER" --name "expo-dev"
 
 # VPS yeniden başlayınca otomatik açılsın
 pm2 save
-pm2 startup systemd -u root --hp /root | tail -1 | bash 2>/dev/null || true
+pm2 startup systemd -u root --hp /root 2>/dev/null | grep "sudo\|systemctl" | bash 2>/dev/null || true
 
 echo ""
 echo "=== Kurulum Tamamlandı ==="
@@ -75,7 +82,7 @@ echo ""
 echo "Expo Go ile http://${VPS_IP}:8081 adresini tarayın."
 echo ""
 echo "Kullanışlı komutlar:"
-echo "  pm2 logs expo-dev      -- logları görüntüle"
+echo "  pm2 logs expo-dev      -- logları görüntüle (QR kod burada)"
 echo "  pm2 restart expo-dev   -- yeniden başlat"
 echo "  pm2 stop expo-dev      -- durdur"
 echo "  pm2 status             -- durum"
