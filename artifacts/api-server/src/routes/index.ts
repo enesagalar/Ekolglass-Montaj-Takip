@@ -11,12 +11,12 @@ import photosRouter from "./photos.js";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(photosRouter);
 router.use(authRouter);
 router.use(assembliesRouter);
 router.use(usersRouter);
 router.use(stockRouter);
 router.use(glassRequestsRouter);
-router.use(photosRouter);
 router.use(uploadRouter);
 
 export default router;
