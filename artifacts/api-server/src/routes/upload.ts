@@ -19,6 +19,8 @@ const upload = multer({
   },
 });
 
+const API_BASE_URL = process.env.API_BASE_URL ?? "";
+
 router.post("/upload", upload.single("photo"), async (req, res) => {
   try {
     if (!req.file) {
@@ -32,12 +34,16 @@ router.post("/upload", upload.single("photo"), async (req, res) => {
     }
 
     const folder = (req.query.folder as string) || "assemblies";
-    const url = await uploadToR2(
+    const key = await uploadToR2(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       folder
     );
+
+    const url = API_BASE_URL
+      ? `${API_BASE_URL}/api/photos/proxy?key=${encodeURIComponent(key)}`
+      : `https://pub-c0a96c48bd6840ba8a7c1ce1e27b8ab9.r2.dev/${key}`;
 
     res.status(201).json({ url });
   } catch (err: any) {

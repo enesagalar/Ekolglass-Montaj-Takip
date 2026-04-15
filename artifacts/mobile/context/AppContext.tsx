@@ -1,6 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { apiGet, apiPost, apiPatch, apiDelete, setTokens, clearTokens } from "../lib/api";
+import { apiGet, apiPost, apiPatch, apiDelete, setTokens, clearTokens, getApiBase } from "../lib/api";
+
+function toProxyUri(uri: string): string {
+  if (!uri) return uri;
+  if (uri.startsWith("file://") || uri.startsWith("content://")) return uri;
+  if (uri.includes(".r2.dev/")) {
+    const key = uri.split(".r2.dev/")[1];
+    if (key) {
+      const base = getApiBase();
+      return `${base}/photos/proxy?key=${encodeURIComponent(key)}`;
+    }
+  }
+  return uri;
+}
 
 export type UserRole = "field" | "admin" | "customer" | null;
 
@@ -189,8 +202,8 @@ function dbRowToAssembly(row: any): AssemblyRecord {
     vehicleModel: row.vehicle_model ?? "fiat-ducato",
     vin: row.vin ?? "",
     vinLast5: row.vin_last5 ?? row.vin?.slice(-5) ?? "",
-    approvalDocPhotoUri: row.approval_doc_photo_uri,
-    vinPhotoUri: row.vin_photo_uri,
+    approvalDocPhotoUri: row.approval_doc_photo_uri ? toProxyUri(row.approval_doc_photo_uri) : undefined,
+    vinPhotoUri: row.vin_photo_uri ? toProxyUri(row.vin_photo_uri) : undefined,
     glassProductIds: row.glass_product_ids ?? [],
     assignedTo: row.assigned_to ?? "",
     assignedToUserId: row.assigned_to_user_id,
@@ -200,7 +213,7 @@ function dbRowToAssembly(row: any): AssemblyRecord {
     waterTestCustomerApproval: row.water_test_customer_approval,
     photos: (row.photos ?? []).map((p: any): PhotoRecord => ({
       id: p.id,
-      uri: p.uri,
+      uri: toProxyUri(p.uri),
       type: p.type,
       timestamp: p.created_at,
       note: p.note,

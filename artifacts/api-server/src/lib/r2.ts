@@ -1,6 +1,7 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import path from "path";
+import type { Readable } from "node:stream";
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID ?? "";
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID ?? "";
@@ -35,9 +36,26 @@ export async function uploadToR2(
     })
   );
 
-  return `${R2_PUBLIC_URL}/${uniqueName}`;
+  return uniqueName;
+}
+
+export async function getFromR2(key: string): Promise<{ body: Readable; contentType: string }> {
+  const response = await r2Client.send(
+    new GetObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+    })
+  );
+  return {
+    body: response.Body as Readable,
+    contentType: response.ContentType ?? "image/jpeg",
+  };
 }
 
 export function isR2Configured(): boolean {
   return !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_PUBLIC_URL);
+}
+
+export function getR2PublicUrl(key: string): string {
+  return `${R2_PUBLIC_URL}/${key}`;
 }

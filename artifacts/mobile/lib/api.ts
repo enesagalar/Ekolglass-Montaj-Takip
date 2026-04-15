@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const getApiBase = (): string => {
+export const getApiBase = (): string => {
   // Production builds: set EXPO_PUBLIC_API_URL in EAS dashboard / eas.json env
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;

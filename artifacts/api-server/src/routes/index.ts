@@ -6,6 +6,7 @@ import usersRouter from "./users.js";
 import stockRouter from "./stock.js";
 import glassRequestsRouter from "./glass-requests.js";
 import uploadRouter from "./upload.js";
+import photosRouter from "./photos.js";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(usersRouter);
 router.use(stockRouter);
 router.use(glassRequestsRouter);
 router.use(uploadRouter);
+router.use(photosRouter);
 
 export default router;
