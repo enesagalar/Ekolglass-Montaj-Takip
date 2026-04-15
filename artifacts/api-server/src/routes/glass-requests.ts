@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { supabase } from "../lib/supabase.js";
-import { requireAuth, requireRole } from "../lib/middleware.js";
+import { query, queryOne } from "../lib/db.js";
+import { requireAuth, requireRole, type JwtPayload } from "../lib/middleware.js";
 
 const router = Router();
 
@@ -8,29 +8,22 @@ router.use(requireAuth);
 
 router.get("/glass-requests", async (req, res) => {
   try {
-    const user = (req as any).user;
-    const role = user.user_metadata?.role;
+    const user = (req as any).user as JwtPayload;
 
-    let query = supabase
-      .from("glass_requests")
-      .select("*")
-      .order("requested_date", { ascending: true })
-      .order("created_at", { ascending: false });
-
-    if (role === "customer") {
-      const { data: appUser } = await supabase
-        .from("app_users")
-        .select("id")
-        .eq("auth_id", user.id)
-        .single();
-      if (appUser) {
-        query = query.eq("requested_by", appUser.id);
-      }
+    if (user.role === "customer") {
+      const rows = await query(
+        `SELECT * FROM glass_requests WHERE requested_by = $1
+         ORDER BY requested_date ASC, created_at DESC`,
+        [user.id]
+      );
+      res.json(rows);
+      return;
     }
 
-    const { data, error } = await query;
-    if (error) { res.status(500).json({ error: error.message }); return; }
-    res.json(data ?? []);
+    const rows = await query(
+      `SELECT * FROM glass_requests ORDER BY requested_date ASC, created_at DESC`
+    );
+    res.json(rows);
   } catch {
     res.status(500).json({ error: "Sunucu hatası." });
   }
@@ -38,7 +31,7 @@ router.get("/glass-requests", async (req, res) => {
 
 router.post("/glass-requests", requireRole("customer", "admin"), async (req, res) => {
   try {
-    const user = (req as any).user;
+    const user = (req as any).user as JwtPayload;
     const { items, requestedDate, notes } = req.body as {
       items: { glassId: string; glassName: string; quantity: number }[];
       requestedDate: string;
@@ -50,30 +43,16 @@ router.post("/glass-requests", requireRole("customer", "admin"), async (req, res
       return;
     }
 
-    const { data: appUser } = await supabase
-      .from("app_users")
-      .select("id, name")
-      .eq("auth_id", user.id)
-      .single();
-
     const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("glass_requests")
-      .insert({
-        requested_by: appUser?.id ?? null,
-        requested_by_name: appUser?.name ?? user.user_metadata?.name ?? "",
-        items,
-        requested_date: requestedDate,
-        notes: notes ?? "",
-        status: "pending",
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
+    const [row] = await query(
+      `INSERT INTO glass_requests
+        (requested_by, requested_by_name, items, requested_date, notes, status, created_at, updated_at)
+       VALUES ($1, $2, $3::jsonb, $4, $5, 'pending', $6, $6)
+       RETURNING *`,
+      [user.id, user.name, JSON.stringify(items), requestedDate, notes ?? "", now]
+    );
 
-    if (error) { res.status(500).json({ error: error.message }); return; }
-    res.status(201).json(data);
+    res.status(201).json(row);
   } catch {
     res.status(500).json({ error: "Sunucu hatası." });
   }
@@ -84,19 +63,25 @@ router.patch("/glass-requests/:id", requireRole("admin"), async (req, res) => {
     const { id } = req.params;
     const { status, adminNote } = req.body as { status?: string; adminNote?: string };
 
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
-    if (status !== undefined) updates.status = status;
-    if (adminNote !== undefined) updates.admin_note = adminNote;
+    const setClauses: string[] = ["updated_at = NOW()"];
+    const params: any[] = [];
+    let idx = 1;
 
-    const { data, error } = await supabase
-      .from("glass_requests")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
+    if (status !== undefined) { setClauses.push(`status = $${idx++}`); params.push(status); }
+    if (adminNote !== undefined) { setClauses.push(`admin_note = $${idx++}`); params.push(adminNote); }
 
-    if (error || !data) { res.status(404).json({ error: "Talep bulunamadı." }); return; }
-    res.json(data);
+    params.push(id);
+    const [row] = await query(
+      `UPDATE glass_requests SET ${setClauses.join(", ")}
+       WHERE id = $${idx} RETURNING *`,
+      params
+    );
+
+    if (!row) {
+      res.status(404).json({ error: "Talep bulunamadı." });
+      return;
+    }
+    res.json(row);
   } catch {
     res.status(500).json({ error: "Sunucu hatası." });
   }
@@ -105,8 +90,7 @@ router.patch("/glass-requests/:id", requireRole("admin"), async (req, res) => {
 router.delete("/glass-requests/:id", requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from("glass_requests").delete().eq("id", id);
-    if (error) { res.status(500).json({ error: error.message }); return; }
+    await query(`DELETE FROM glass_requests WHERE id = $1`, [id]);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Sunucu hatası." });

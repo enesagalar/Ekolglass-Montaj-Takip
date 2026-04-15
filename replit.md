@@ -11,17 +11,21 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
-- **Database**: Supabase (PostgreSQL) — service role client in API server
+- **Database**: PostgreSQL 16 (Replit built-in for dev, Docker on VPS for production)
+- **Auth**: Custom JWT (bcryptjs + jsonwebtoken) — Supabase removed
+- **Photo storage**: Cloudflare R2 (S3-compatible)
 - **Build**: esbuild (ESM bundle)
 
 ## Artifacts
 
 ### API Server (`artifacts/api-server`)
 - Express 5, TypeScript, esbuild
-- Routes: `/api/auth/login|refresh|logout|me`, `/api/assemblies` (CRUD + photos/bulk + defects), `/api/users` (admin CRUD), `/api/stock`, `/api/consumables`
-- Auth: Supabase JWT via `requireAuth` middleware (validates Bearer token with anon key `getUser`)
-- Role guard: `requireRole(...)` reads `user.user_metadata.role`
-- Supabase client: `lib/supabase.ts` (service role — bypasses RLS)
+- Routes: `/api/auth/login|refresh|logout|me`, `/api/assemblies` (CRUD + photos/bulk + defects), `/api/users` (admin CRUD), `/api/stock`, `/api/consumables`, `/api/glass-requests`, `/api/upload`
+- Auth: Custom JWT via `requireAuth` middleware (`jsonwebtoken` verify)
+- Role guard: `requireRole(...)` reads `user.role` from JWT payload
+- DB client: `lib/db.ts` — raw `pg` Pool with `query()` and `queryOne()` helpers
+- JWT payload: `{ id, username, name, role, type: "access"|"refresh" }`
+- Access token: 7 days, Refresh token: 30 days
 
 ### Mobile App (`artifacts/mobile`)
 - **Framework**: Expo / React Native
@@ -51,25 +55,47 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `context/AppContext.tsx` — all state, API calls
 - `lib/api.ts` — API base URL, fetch helpers, token management
 
-### Database (Supabase)
+### Database (PostgreSQL)
 
 #### Tables
-- `app_users` — username/email/role/active, linked to `auth.users`
-- `assemblies` — main record (vehicle_model, vin, status, status_timestamps, etc.)
+- `app_users` — username / password_hash / name / role / active
+- `assemblies` — main record (vehicle_model, vin, status, status_timestamps, glass_product_ids JSONB, etc.)
 - `photos` — assembly photos (type, uri, angle)
 - `defects` — defect records per assembly
 - `activity_log` — audit log per assembly
-- `glass_stock` — glass product inventory
-- `consumables` — chemical/tool stock
+- `glass_stock` — glass product inventory (g1-g8)
+- `consumables` — chemical/tool stock (c1-c6)
+- `glass_requests` — glass request orders (items JSONB)
 
-Migration: `supabase/migrations/001_initial_schema.sql`
+Schema file: `init.sql` (runs automatically on first Docker start)
 
-#### User Emails (Supabase Auth)
-Format: `<username>@cam-montaj.internal`
-Default users to seed (via POST `/api/users` as admin or Supabase Dashboard):
+#### Default Users (password hashes in init.sql)
 - admin / admin123 (role: admin)
 - mehmet / 1234, ali / 1234, hasan / 1234, murat / 1234 (role: field)
 - isri / isri2024 (role: customer)
+
+## Environment Variables Required
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | JWT signing key (min 64 chars) |
+| `R2_ACCOUNT_ID` | Cloudflare R2 account |
+| `R2_ACCESS_KEY_ID` | R2 access key |
+| `R2_SECRET_ACCESS_KEY` | R2 secret key |
+| `R2_BUCKET_NAME` | R2 bucket name |
+| `R2_PUBLIC_URL` | R2 public base URL |
+
+## VPS Deployment
+
+See `MIGRATE_TO_VPS.md` for full Hetzner CPX11 deployment guide including:
+- Docker + PostgreSQL setup
+- Nginx + Let's Encrypt SSL
+- Automated daily backups
+- Cloudflare R2 integration
+- Cost analysis (~€8.60/month)
+
+Files: `docker-compose.yml`, `init.sql`, `artifacts/api-server/Dockerfile`
 
 ## Key Commands
 
