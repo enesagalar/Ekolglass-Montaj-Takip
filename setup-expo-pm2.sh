@@ -54,10 +54,11 @@ ufw allow 19002/tcp 2>/dev/null || true
 # Wrapper script oluştur
 cat > "$WRAPPER" <<EOF
 #!/bin/bash
+export CI=1
 export REACT_NATIVE_PACKAGER_HOSTNAME=${VPS_IP}
 export EXPO_PUBLIC_API_URL=${API_URL}
 cd ${APP_DIR}/artifacts/mobile
-exec pnpm exec expo start --port 8081 --lan --non-interactive
+exec pnpm exec expo start --port 8081 --lan
 EOF
 chmod +x "$WRAPPER"
 
