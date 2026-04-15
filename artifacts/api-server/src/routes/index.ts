@@ -16,7 +16,7 @@ router.use(assembliesRouter);
 router.use(usersRouter);
 router.use(stockRouter);
 router.use(glassRequestsRouter);
-router.use(uploadRouter);
 router.use(photosRouter);
+router.use(uploadRouter);
 
 export default router;
