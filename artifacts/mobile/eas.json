@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -11,6 +11,7 @@
         "simulator": false
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "http://46.225.233.65:3000/api",
         "EXPO_PUBLIC_ENV": "development"
       }
     },
@@ -23,6 +24,7 @@
         "buildType": "apk"
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "http://46.225.233.65:3000/api",
         "EXPO_PUBLIC_ENV": "preview"
       }
     },
@@ -35,6 +37,7 @@
         "buildType": "app-bundle"
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "http://46.225.233.65:3000/api",
         "EXPO_PUBLIC_ENV": "production"
       }
     }

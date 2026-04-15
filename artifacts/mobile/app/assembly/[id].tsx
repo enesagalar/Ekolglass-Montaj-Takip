@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { Image as ExpoImage } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -846,7 +847,7 @@ export default function AssemblyDetailScreen() {
             <View style={styles.photoGrid}>
               {assembly.photos.map((photo) => (
                 <Pressable key={photo.id} style={styles.photoThumb} onPress={() => setSelectedPhoto(photo)}>
-                  <Image source={{ uri: photo.uri }} style={styles.photoImg} />
+                  <ExpoImage source={{ uri: photo.uri }} style={styles.photoImg} contentFit="cover" cachePolicy="disk" />
                   <View style={[styles.photoTypePill, { backgroundColor: PHOTO_TYPE_COLORS[photo.type] ?? "#6366f1" }]}>
                     <Text style={styles.photoTypePillText}>
                       {photo.angle
@@ -1055,7 +1056,7 @@ export default function AssemblyDetailScreen() {
       {/* Full-screen photo viewer */}
       {selectedPhoto && (
         <Pressable style={styles.photoViewer} onPress={() => setSelectedPhoto(null)}>
-          <Image source={{ uri: selectedPhoto.uri }} style={styles.photoViewerImg} resizeMode="contain" />
+          <ExpoImage source={{ uri: selectedPhoto.uri }} style={styles.photoViewerImg} contentFit="contain" cachePolicy="disk" />
           <View style={styles.photoViewerMeta}>
             <View style={[styles.photoViewerPill, { backgroundColor: PHOTO_TYPE_COLORS[selectedPhoto.type] ?? "#6366f1" }]}>
               <Text style={styles.photoTypePillText}>

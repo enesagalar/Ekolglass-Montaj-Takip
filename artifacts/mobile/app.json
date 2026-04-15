@@ -20,7 +20,10 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Montaj fotoğrafları ve onay belgesi çekmek için kamera erişimi gereklidir.",
         "NSPhotoLibraryUsageDescription": "Montaj fotoğraflarını galeriden seçmek için erişim gereklidir.",
-        "NSPhotoLibraryAddUsageDescription": "Montaj fotoğraflarını kaydetmek için erişim gereklidir."
+        "NSPhotoLibraryAddUsageDescription": "Montaj fotoğraflarını kaydetmek için erişim gereklidir.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {
