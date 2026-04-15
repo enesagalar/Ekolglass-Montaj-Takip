@@ -1,0 +1,61 @@
+WARN[0000] /opt/ekolglass/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion
+ekolglass-db  | CREATE TABLE
+ekolglass-db  | CREATE INDEX
+ekolglass-db  | CREATE INDEX
+ekolglass-api  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-s3' imported from /app/dist/index.mjs
+ekolglass-api  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
+ekolglass-api  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+ekolglass-api  |     at moduleResolve (node:internal/modules/esm/resolve:855:18)
+ekolglass-api  |     at defaultResolve (node:internal/modules/esm/resolve:985:11)
+ekolglass-api  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+ekolglass-api  |     at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+ekolglass-api  |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+ekolglass-api  |     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {
+ekolglass-api  |   code: 'ERR_MODULE_NOT_FOUND'
+ekolglass-api  | }
+ekolglass-api  |
+ekolglass-api  | Node.js v22.22.2
+ekolglass-api  | node:internal/modules/package_json_reader:314
+ekolglass-api  |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+ekolglass-api  |         ^
+ekolglass-api  |
+ekolglass-api  | Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@aws-sdk/client-s3' imported from /app/dist/index.mjs
+ekolglass-api  |     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
+ekolglass-api  |     at packageResolve (node:internal/modules/esm/resolve:768:81)
+ekolglass-api  |     at moduleResolve (node:internal/modules/esm/resolve:855:18)
+ekolglass-api  |     at defaultResolve (node:internal/modules/esm/resolve:985:11)
+ekolglass-api  |     at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+ekolglass-api  |     at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+ekolglass-api  |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+ekolglass-api  |     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {
+ekolglass-api  |   code: 'ERR_MODULE_NOT_FOUND'
+ekolglass-api  | }
+ekolglass-api  |
+ekolglass-api  | Node.js v22.22.2
+ekolglass-db   | CREATE INDEX
+ekolglass-db   | CREATE INDEX
+ekolglass-db   | CREATE INDEX
+ekolglass-db   | CREATE INDEX
+ekolglass-db   | INSERT 0 8
+ekolglass-db   | INSERT 0 6
+ekolglass-db   | INSERT 0 6
+ekolglass-db   |
+ekolglass-db   |
+ekolglass-db   | waiting for server to shut down...2026-04-15 12:23:01.392 UTC [41] LOG:  received fast shutdown request
+ekolglass-db   | .2026-04-15 12:23:01.393 UTC [41] LOG:  aborting any active transactions
+ekolglass-db   | 2026-04-15 12:23:01.397 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+ekolglass-db   | 2026-04-15 12:23:01.397 UTC [42] LOG:  shutting down
+ekolglass-db   | 2026-04-15 12:23:01.399 UTC [42] LOG:  checkpoint starting: shutdown immediate
+ekolglass-db   | 2026-04-15 12:23:01.440 UTC [42] LOG:  checkpoint complete: wrote 956 buffers (5.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.012 s, sync=0.026 s, total=0.044 s; sync files=337, longest=0.002 s, average=0.001 s; distance=4478 kB, estimate=4478 kB; lsn=0/1951DC8, redo lsn=0/1951DC8
+ekolglass-db   | 2026-04-15 12:23:01.446 UTC [41] LOG:  database system is shut down
+ekolglass-db   |  done
+ekolglass-db   | server stopped
+ekolglass-db   |
+ekolglass-db   | PostgreSQL init process complete; ready for start up.
+ekolglass-db   |
+ekolglass-db   | 2026-04-15 12:23:01.511 UTC [1] LOG:  starting PostgreSQL 16.13 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+ekolglass-db   | 2026-04-15 12:23:01.511 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+ekolglass-db   | 2026-04-15 12:23:01.511 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+ekolglass-db   | 2026-04-15 12:23:01.514 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+ekolglass-db   | 2026-04-15 12:23:01.518 UTC [59] LOG:  database system was shut down at 2026-04-15 12:23:01 UTC
+ekolglass-db   | 2026-04-15 12:23:01.522 UTC [1] LOG:  database system is ready to accept connections
