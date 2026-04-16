@@ -6,7 +6,7 @@ set -e
 echo "=== Migration v2 ==="
 
 # Postgres container'ı otomatik bul
-DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -i postgres | head -1)
+DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -iE "postgres|db" | head -1)
 
 if [ -z "$DB_CONTAINER" ]; then
   echo "HATA: Postgres container bulunamadı. Mevcut container'lar:"
