@@ -29,6 +29,7 @@ import {
   useApp,
 } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { apiFetch } from "@/lib/api";
 import { uploadPhoto, uploadPhotos } from "@/lib/upload";
 
 const STATUS_FLOW: AssemblyStatus[] = [
@@ -127,7 +128,7 @@ export default function AssemblyDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getAssembly, updateAssembly, addPhoto, addPhotos, addDefect, updateDefect, deleteAssembly, role, currentUser, getGlassProduct } = useApp();
+  const { getAssembly, updateAssembly, addPhoto, addPhotos, addDefect, updateDefect, deleteAssembly, refreshAssemblies, role, currentUser, getGlassProduct } = useApp();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -355,38 +356,31 @@ export default function AssemblyDetailScreen() {
 
   const handleCustomerApproval = async (approved: boolean) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const now = new Date().toISOString();
+    const doApproval = async () => {
+      try {
+        const res = await apiFetch(`/assemblies/${assembly.id}/customer-approval`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Hata");
+        await refreshAssemblies();
+        await Haptics.notificationAsync(
+          approved ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
+        );
+      } catch (e: any) {
+        Alert.alert("Hata", e.message ?? "İşlem başarısız.");
+      }
+    };
     if (approved) {
       Alert.alert("Su Testi Onayı", "Araç su testinden geçti olarak onaylıyor musunuz?", [
         { text: "İptal", style: "cancel" },
-        {
-          text: "Onayla",
-          onPress: async () => {
-            updateAssembly(assembly.id, {
-              waterTestCustomerApproval: "approved",
-              status: "completed",
-              waterTestResult: "passed",
-              completedAt: now,
-            }, "ISRI tarafından su testi onaylandı");
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
+        { text: "Onayla", onPress: doApproval },
       ]);
     } else {
       Alert.alert("Su Testi Reddi", "Araç su testinden kaldı olarak işaretlenecek.", [
         { text: "İptal", style: "cancel" },
-        {
-          text: "Reddet",
-          style: "destructive",
-          onPress: async () => {
-            updateAssembly(assembly.id, {
-              waterTestCustomerApproval: "rejected",
-              status: "water_test_failed",
-              waterTestResult: "failed",
-            }, "ISRI tarafından su testi reddedildi");
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          },
-        },
+        { text: "Reddet", style: "destructive", onPress: doApproval },
       ]);
     }
   };
@@ -945,17 +939,35 @@ export default function AssemblyDetailScreen() {
                   ))}
                 </View>
               )}
-              <Pressable onPress={handlePickDefectPhoto} style={[styles.defectPhotoBtn, { borderColor: defectPhotoUri ? colors.success : colors.border }]}>
-                <Feather name={defectPhotoUri ? "check-circle" : "camera"} size={15} color={defectPhotoUri ? colors.success : colors.mutedForeground} />
-                <Text style={[styles.defectPhotoBtnText, { color: defectPhotoUri ? colors.success : colors.mutedForeground }]}>
-                  {defectPhotoUri ? "Fotoğraf seçildi" : "Fotoğraf ekle (opsiyonel)"}
-                </Text>
-                {defectPhotoUri && (
-                  <Pressable onPress={() => setDefectPhotoUri(null)}>
-                    <Feather name="x" size={14} color={colors.mutedForeground} />
+              {defectPhotoUri ? (
+                <View style={[styles.defectPhotoPreviewWrap, { borderColor: colors.success + "50", backgroundColor: colors.success + "08" }]}>
+                  <ExpoImage source={{ uri: defectPhotoUri }} style={styles.defectPhotoPreview} contentFit="cover" />
+                  <Pressable
+                    onPress={() => setDefectPhotoUri(null)}
+                    style={[styles.defectPhotoRemoveBtn, { backgroundColor: colors.destructive }]}
+                  >
+                    <Feather name="x" size={14} color="#fff" />
                   </Pressable>
-                )}
-              </Pressable>
+                  <View style={[styles.defectPhotoOkBadge, { backgroundColor: colors.success }]}>
+                    <Feather name="check" size={11} color="#fff" />
+                    <Text style={styles.defectPhotoOkText}>Fotoğraf eklendi</Text>
+                  </View>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handlePickDefectPhoto}
+                  style={[styles.defectPhotoBtn, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "40" }]}
+                >
+                  <View style={[styles.defectPhotoBtnIcon, { backgroundColor: colors.primary }]}>
+                    <Feather name="camera" size={18} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.defectPhotoBtnLabel, { color: colors.foreground }]}>Fotoğraf Ekle</Text>
+                    <Text style={[styles.defectPhotoBtnSub, { color: colors.mutedForeground }]}>Kusuru belgeleyin (opsiyonel)</Text>
+                  </View>
+                  <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                </Pressable>
+              )}
               <Pressable onPress={handleAddDefect} style={[styles.defectSubmit, { backgroundColor: colors.destructive }]}>
                 <Text style={styles.defectSubmitText}>Kaydet</Text>
               </Pressable>
@@ -1230,7 +1242,15 @@ const styles = StyleSheet.create({
   defectDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   defectMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
   defectPhoto: { width: "100%", height: 160, borderRadius: 8, marginTop: 6 },
-  defectPhotoBtn: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, borderStyle: "dashed" },
+  defectPhotoBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 10, borderWidth: 1.5 },
+  defectPhotoBtnIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  defectPhotoBtnLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  defectPhotoBtnSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
+  defectPhotoPreviewWrap: { borderRadius: 10, borderWidth: 1.5, overflow: "hidden", position: "relative" },
+  defectPhotoPreview: { width: "100%", height: 160 },
+  defectPhotoRemoveBtn: { position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  defectPhotoOkBadge: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 6 },
+  defectPhotoOkText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#fff" },
   defectPhotoBtnText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
   infoBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, borderRadius: 10, borderWidth: 1 },
   infoBoxText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },

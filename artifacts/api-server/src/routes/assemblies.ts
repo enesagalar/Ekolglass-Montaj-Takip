@@ -283,6 +283,41 @@ router.patch("/assemblies/:id", requireRole("field", "admin"), async (req, res) 
   }
 });
 
+router.post("/assemblies/:id/customer-approval", requireRole("customer"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approved } = req.body as { approved: boolean };
+    const now = new Date().toISOString();
+
+    const existing = await queryOne<{ status: string; status_timestamps: any }>(
+      `SELECT status, status_timestamps FROM assemblies WHERE id = $1`, [id]
+    );
+    if (!existing) { res.status(404).json({ error: "Kayıt bulunamadı." }); return; }
+    if (existing.status !== "water_test") {
+      res.status(400).json({ error: "Su testi aşamasında değil." }); return;
+    }
+
+    if (approved) {
+      const ts = { ...(existing.status_timestamps ?? {}), completed: now };
+      await query(
+        `UPDATE assemblies SET status='completed', water_test_result='passed', water_test_customer_approval='approved', completed_at=$1, status_timestamps=$2::jsonb, updated_at=$1 WHERE id=$3`,
+        [now, JSON.stringify(ts), id]
+      );
+    } else {
+      const ts = { ...(existing.status_timestamps ?? {}), water_test_failed: now };
+      await query(
+        `UPDATE assemblies SET status='water_test_failed', water_test_result='failed', water_test_customer_approval='rejected', status_timestamps=$1::jsonb, updated_at=$2 WHERE id=$3`,
+        [JSON.stringify(ts), now, id]
+      );
+    }
+
+    const row = await queryOne<any>(`SELECT * FROM assemblies WHERE id = $1`, [id]);
+    res.json(row);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Sunucu hatası." });
+  }
+});
+
 router.delete("/assemblies/:id", requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
