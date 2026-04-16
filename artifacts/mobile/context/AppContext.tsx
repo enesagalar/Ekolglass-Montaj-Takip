@@ -15,7 +15,7 @@ function toProxyUri(uri: string): string {
   return uri;
 }
 
-export type UserRole = "field" | "admin" | "customer" | null;
+export type UserRole = "field" | "admin" | "customer" | "accounting" | null;
 
 export type AssemblyStatus =
   | "pending"

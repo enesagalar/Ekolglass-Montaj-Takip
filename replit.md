@@ -20,7 +20,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ### API Server (`artifacts/api-server`)
 - Express 5, TypeScript, esbuild
-- Routes: `/api/auth/login|refresh|logout|me`, `/api/assemblies` (CRUD + photos/bulk + defects), `/api/users` (admin CRUD), `/api/stock`, `/api/consumables`, `/api/glass-requests`, `/api/upload`
+- Routes: `/api/auth/login|refresh|logout|me`, `/api/assemblies` (CRUD + photos/bulk + defects), `/api/users` (admin CRUD), `/api/stock`, `/api/consumables`, `/api/glass-requests`, `/api/upload`, `/api/invoices` (accounting/admin/customer)
 - Auth: Custom JWT via `requireAuth` middleware (`jsonwebtoken` verify)
 - Role guard: `requireRole(...)` reads `user.role` from JWT payload
 - DB client: `lib/db.ts` — raw `pg` Pool with `query()` and `queryOne()` helpers
@@ -36,7 +36,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API client**: `lib/api.ts` — `apiGet/apiPost/apiPatch/apiDelete` with auto token refresh
 
 #### Features
-- Role-based login: Field Staff (`field`), Admin (`admin`), ISRI Yetkilisi (`customer`)
+- Role-based login: Field Staff (`field`), Admin (`admin`), ISRI Yetkilisi (`customer`), Muhasebe (`accounting`)
 - Assembly record list with search and status filter
 - New assembly creation form (VIN, glass types, staff assignment)
 - Assembly detail: full status flow with photo capture, defect logging

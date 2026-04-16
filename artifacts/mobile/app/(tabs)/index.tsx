@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -41,9 +42,16 @@ function isSameDay(date1: Date, date2: Date) {
 export default function AssemblyListScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { assemblies, role } = useApp();
+  const { assemblies, role, refreshAssemblies } = useApp();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<AssemblyStatus | "all">("all");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshAssemblies();
+    setRefreshing(false);
+  }, [refreshAssemblies]);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -228,7 +236,12 @@ export default function AssemblyListScreen() {
       </View>
 
       {filtered.length === 0 ? (
-        <View style={styles.emptyContainer}>
+        <ScrollView
+          contentContainerStyle={styles.emptyScrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
           <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
             <Feather name="sun" size={32} color={colors.mutedForeground} />
           </View>
@@ -251,7 +264,7 @@ export default function AssemblyListScreen() {
               <Text style={[styles.viewAllText, { color: colors.mutedForeground }]}>Geçmiş Kayıtları Gör</Text>
             </Pressable>
           )}
-        </View>
+        </ScrollView>
       ) : (
         <FlatList
           data={filtered}
@@ -259,6 +272,9 @@ export default function AssemblyListScreen() {
           renderItem={({ item }) => <AssemblyCard assembly={item} />}
           contentContainerStyle={[styles.list, { paddingBottom: bottomPad }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
         />
       )}
     </View>
@@ -294,6 +310,7 @@ const styles = StyleSheet.create({
   filterCountText: { fontSize: 11, fontFamily: "Inter_700Bold" },
   list: { paddingHorizontal: 16, paddingTop: 14 },
   emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 14 },
+  emptyScrollContent: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 14 },
   emptyIcon: { width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },

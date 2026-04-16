@@ -80,14 +80,19 @@ docker compose --env-file .env.production restart api
 
 ---
 
-## Veritabanı Migration (Yeni Kolon Eklemek)
+## Veritabanı Migration
+
+### Migration v2 + v3 (Sırasıyla Çalıştırın)
 
 ```bash
 cd /opt/ekolglass && git pull
-bash migrate-v2.sh
+bash migrate-v2.sh   # cam alanları, su testi, kusur tablosu
+bash migrate-v3.sh   # muhasebe rolü + faturalar tablosu
 docker compose --env-file .env.production up -d --build
 pm2 restart expo-dev
 ```
+
+> **Dikkat:** v2'yi çalıştırmadan v3 çalıştırırsanız hata almaz, ama v2 değişiklikleri eksik kalır. İkisini sırayla çalıştırın.
 
 ---
 
@@ -217,3 +222,4 @@ echo "exp://46.225.233.65:8081"
 | admin | admin123 | Admin |
 | mehmet / ali / hasan / murat | 1234 | Personel |
 | isri | isri2024 | Müşteri |
+| muhasebe | muhasebe123 | Muhasebe |

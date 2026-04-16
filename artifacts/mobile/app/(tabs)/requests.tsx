@@ -1,10 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,7 +51,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default function RequestsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { role, glassRequests, addGlassRequest, updateGlassRequest, deleteGlassRequest, glassStock } = useApp();
+  const { role, glassRequests, addGlassRequest, updateGlassRequest, deleteGlassRequest, glassStock, refreshGlassRequests } = useApp();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -64,6 +65,7 @@ export default function RequestsScreen() {
         glassRequests={glassRequests}
         addGlassRequest={addGlassRequest}
         glassStock={glassStock}
+        refreshGlassRequests={refreshGlassRequests}
       />
     );
   }
@@ -77,6 +79,7 @@ export default function RequestsScreen() {
         glassRequests={glassRequests}
         updateGlassRequest={updateGlassRequest}
         deleteGlassRequest={deleteGlassRequest}
+        refreshGlassRequests={refreshGlassRequests}
       />
     );
   }
@@ -92,13 +95,20 @@ export default function RequestsScreen() {
 // ==== CUSTOMER VIEW ====
 
 function CustomerRequestsView({
-  colors, topPad, bottomPad, glassRequests, addGlassRequest, glassStock,
+  colors, topPad, bottomPad, glassRequests, addGlassRequest, glassStock, refreshGlassRequests,
 }: any) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [selectedDate, setSelectedDate] = useState<Date>(tomorrow());
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"form" | "history">("form");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshGlassRequests?.();
+    setRefreshing(false);
+  }, [refreshGlassRequests]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
 
@@ -263,6 +273,9 @@ function CustomerRequestsView({
         <ScrollView
           contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
         >
           {glassRequests.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -280,11 +293,18 @@ function CustomerRequestsView({
 
 // ==== ADMIN VIEW ====
 
-function AdminRequestsView({ colors, topPad, bottomPad, glassRequests, updateGlassRequest, deleteGlassRequest }: any) {
+function AdminRequestsView({ colors, topPad, bottomPad, glassRequests, updateGlassRequest, deleteGlassRequest, refreshGlassRequests }: any) {
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [reviewModal, setReviewModal] = useState<GlassRequest | null>(null);
   const [adminNote, setAdminNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshGlassRequests?.();
+    setRefreshing(false);
+  }, [refreshGlassRequests]);
 
   const filtered = useMemo(() => {
     const list = filter === "pending"
@@ -342,6 +362,9 @@ function AdminRequestsView({ colors, topPad, bottomPad, glassRequests, updateGla
       <ScrollView
         contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
       >
         {filtered.length === 0 ? (
           <View style={styles.emptyContainer}>

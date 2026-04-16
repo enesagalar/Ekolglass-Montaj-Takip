@@ -23,3 +23,15 @@ id = "UQKQaRb0-3lwWEBbyYDuP"
 uri = "file://SUNUCU-KILAVUZU.md"
 type = "text"
 title = "Sunucu Kılavuzu"
+
+[[outputs]]
+id = "2UZbeY4b3GQaZGvUj8_vY"
+uri = "file://.local/outputs/Mobile-Developer-Assistant.pdf"
+type = "pdf"
+title = "Mobile Developer Assistant.pdf"
+
+[[outputs]]
+id = "H2WSHDhe4jUsNp4quyAWn"
+uri = "file://.local/outputs/Mobile-Developer-Assistant.pptx"
+type = "slides"
+title = "Mobile Developer Assistant.pptx"

@@ -1,10 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -69,7 +70,7 @@ interface FlatPhoto {
 export default function PhotosScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { assemblies, role, currentUser } = useApp();
+  const { assemblies, role, currentUser, refreshAssemblies } = useApp();
   const { width } = useWindowDimensions();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -78,6 +79,13 @@ export default function PhotosScreen() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [vinSearch, setVinSearch] = useState("");
   const [fullscreen, setFullscreen] = useState<FlatPhoto | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshAssemblies();
+    setRefreshing(false);
+  }, [refreshAssemblies]);
 
   const cols = width > 500 ? 4 : 3;
   const photoSize = (width - 32 - (cols - 1) * 4) / cols;
@@ -215,17 +223,25 @@ export default function PhotosScreen() {
       </View>
 
       {filtered.length === 0 ? (
-        <View style={styles.empty}>
+        <ScrollView
+          contentContainerStyle={styles.empty}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
           <Feather name="camera-off" size={40} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Fotoğraf yok</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             {vinSearch ? `"${vinSearch}" şaseli araç fotoğrafı bulunamadı` : filter === "all" ? "Henüz fotoğraf çekilmemiş" : "Bu türde fotoğraf bulunamadı"}
           </Text>
-        </View>
+        </ScrollView>
       ) : (
         <ScrollView
           contentContainerStyle={[styles.grid, { paddingBottom: bottomPad, paddingTop: 8 }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
         >
           <View style={styles.gridRow}>
             {filtered.map((photo) => {
@@ -321,7 +337,7 @@ const styles = StyleSheet.create({
   typeBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#fff" },
   vinBadge: { position: "absolute", top: 4, right: 4, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 5 },
   vinBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
+  empty: { flexGrow: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center" },
