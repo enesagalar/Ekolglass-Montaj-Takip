@@ -34,11 +34,18 @@ router.post("/upload", upload.single("photo"), async (req, res) => {
     }
 
     const folder = (req.query.folder as string) || "assemblies";
+    const vin = ((req.query.vin as string) ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const photoType = ((req.query.photoType as string) ?? "").replace(/[^A-Za-z0-9_]/g, "");
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const ext = ".jpg";
+    const nameParts = [vin || "unknown", photoType || "photo", ts].filter(Boolean).join("_");
+    const customKey = `${folder}/${nameParts}${ext}`;
     const key = await uploadToR2(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
-      folder
+      folder,
+      customKey
     );
 
     const url = API_BASE_URL

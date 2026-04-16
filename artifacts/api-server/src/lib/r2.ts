@@ -22,10 +22,11 @@ export async function uploadToR2(
   fileBuffer: Buffer,
   originalName: string,
   mimeType: string,
-  folder = "assemblies"
+  folder = "assemblies",
+  customKey?: string
 ): Promise<string> {
   const ext = path.extname(originalName) || ".jpg";
-  const uniqueName = `${folder}/${crypto.randomUUID()}${ext}`;
+  const uniqueName = customKey ?? `${folder}/${crypto.randomUUID()}${ext}`;
 
   await r2Client.send(
     new PutObjectCommand({

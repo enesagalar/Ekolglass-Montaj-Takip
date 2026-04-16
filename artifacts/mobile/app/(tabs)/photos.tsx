@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -58,6 +59,7 @@ interface FlatPhoto {
   type: PhotoType;
   angle?: string;
   assemblyId: string;
+  vin?: string;
   vinLast5?: string;
   vehicleModel?: string;
   capturedAt?: string;
@@ -73,6 +75,7 @@ export default function PhotosScreen() {
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
   const [filter, setFilter] = useState<FilterType>("all");
+  const [vinSearch, setVinSearch] = useState("");
   const [fullscreen, setFullscreen] = useState<FlatPhoto | null>(null);
 
   const cols = width > 500 ? 4 : 3;
@@ -92,6 +95,7 @@ export default function PhotosScreen() {
           type: p.type,
           angle: p.angle,
           assemblyId: a.id,
+          vin: a.vin,
           vinLast5: a.vinLast5,
           vehicleModel: a.vehicleModel,
           capturedAt: p.timestamp,
@@ -104,6 +108,7 @@ export default function PhotosScreen() {
           uri: a.approvalDocPhotoUri,
           type: "approval_doc",
           assemblyId: a.id,
+          vin: a.vin,
           vinLast5: a.vinLast5,
           vehicleModel: a.vehicleModel,
         });
@@ -115,6 +120,7 @@ export default function PhotosScreen() {
           uri: a.vinPhotoUri,
           type: "vin",
           assemblyId: a.id,
+          vin: a.vin,
           vinLast5: a.vinLast5,
           vehicleModel: a.vehicleModel,
         });
@@ -125,9 +131,16 @@ export default function PhotosScreen() {
   }, [assemblies, role, currentUser]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return allPhotos;
-    return allPhotos.filter((p) => p.type === filter);
-  }, [allPhotos, filter]);
+    let list = filter === "all" ? allPhotos : allPhotos.filter((p) => p.type === filter);
+    const q = vinSearch.trim().toUpperCase();
+    if (q) {
+      list = list.filter((p) =>
+        (p.vin ?? "").toUpperCase().includes(q) ||
+        (p.vinLast5 ?? "").toUpperCase().includes(q)
+      );
+    }
+    return list;
+  }, [allPhotos, filter, vinSearch]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -137,6 +150,27 @@ export default function PhotosScreen() {
         <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
           {filtered.length} fotoğraf
         </Text>
+      </View>
+
+      {/* Şase arama */}
+      <View style={[styles.searchWrap, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: vinSearch ? colors.primary : colors.border }]}>
+          <Feather name="search" size={15} color={vinSearch ? colors.primary : colors.mutedForeground} />
+          <TextInput
+            value={vinSearch}
+            onChangeText={setVinSearch}
+            placeholder="Şase no ile ara..."
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            style={[styles.searchInput, { color: colors.foreground }]}
+          />
+          {vinSearch.length > 0 && (
+            <Pressable onPress={() => setVinSearch("")}>
+              <Feather name="x-circle" size={15} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Filter chips */}
@@ -168,7 +202,7 @@ export default function PhotosScreen() {
           <Feather name="camera-off" size={40} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Fotoğraf yok</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            {filter === "all" ? "Henüz fotoğraf çekilmemiş" : "Bu türde fotoğraf bulunamadı"}
+            {vinSearch ? `"${vinSearch}" şaseli araç fotoğrafı bulunamadı` : filter === "all" ? "Henüz fotoğraf çekilmemiş" : "Bu türde fotoğraf bulunamadı"}
           </Text>
         </View>
       ) : (
@@ -234,8 +268,12 @@ export default function PhotosScreen() {
 
               {fullscreen.vinLast5 && (
                 <View style={styles.modalFooter}>
-                  <Feather name="truck" size={14} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.modalFooterText}>···{fullscreen.vinLast5}</Text>
+                  <Feather name="hash" size={14} color="rgba(255,255,255,0.7)" />
+                  <Text style={styles.modalFooterText}>
+                    {fullscreen.vin && fullscreen.vin !== `XXXXX${fullscreen.vinLast5}`
+                      ? fullscreen.vin
+                      : `···${fullscreen.vinLast5}`}
+                  </Text>
                 </View>
               )}
             </>
@@ -251,6 +289,9 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
   headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  searchWrap: { paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1 },
+  searchBox: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", height: 22 },
   filterWrap: { borderBottomWidth: 1 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: "row", alignItems: "center" },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },

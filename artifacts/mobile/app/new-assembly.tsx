@@ -143,9 +143,10 @@ export default function NewAssemblyScreen() {
     // For field: users[] is empty (403), so let the server look up their app_users.id via auth_id.
     const assignedToUserId = role === "field" ? undefined : assignedUser?.id;
     try {
+      const vinForUpload = vinLast5.toUpperCase();
       const [uploadedApprovalUri, uploadedVinUri] = await Promise.all([
-        approvalDocUri ? uploadPhoto(approvalDocUri, "approvals") : Promise.resolve(undefined),
-        vinPhotoUri ? uploadPhoto(vinPhotoUri, "vin") : Promise.resolve(undefined),
+        approvalDocUri ? uploadPhoto(approvalDocUri, "approvals", vinForUpload, "approval_doc") : Promise.resolve(undefined),
+        vinPhotoUri ? uploadPhoto(vinPhotoUri, "vin", vinForUpload, "vin") : Promise.resolve(undefined),
       ]);
 
       const rec = await addAssembly({

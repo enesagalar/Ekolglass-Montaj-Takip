@@ -18,7 +18,9 @@ async function compressPhoto(uri: string): Promise<string> {
 
 export async function uploadPhoto(
   localUri: string,
-  folder: "assemblies" | "approvals" | "vin" = "assemblies"
+  folder: "assemblies" | "approvals" | "vin" = "assemblies",
+  vin?: string,
+  photoType?: string
 ): Promise<string> {
   try {
     const compressed = await compressPhoto(localUri);
@@ -31,7 +33,11 @@ export async function uploadPhoto(
       type: "image/jpeg",
     } as any);
 
-    const res = await apiFetch(`/upload?folder=${folder}`, {
+    const params = new URLSearchParams({ folder });
+    if (vin) params.set("vin", vin);
+    if (photoType) params.set("photoType", photoType);
+
+    const res = await apiFetch(`/upload?${params.toString()}`, {
       method: "POST",
       headers: {},
       body: formData,
@@ -52,7 +58,7 @@ export async function uploadPhoto(
 }
 
 export async function uploadPhotos(
-  items: { uri: string; folder?: "assemblies" | "approvals" | "vin" }[]
+  items: { uri: string; folder?: "assemblies" | "approvals" | "vin"; vin?: string; photoType?: string }[]
 ): Promise<string[]> {
-  return Promise.all(items.map((item) => uploadPhoto(item.uri, item.folder)));
+  return Promise.all(items.map((item) => uploadPhoto(item.uri, item.folder, item.vin, item.photoType)));
 }

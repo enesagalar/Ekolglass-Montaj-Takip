@@ -225,7 +225,7 @@ export default function AssemblyDetailScreen() {
 
       try {
         const uploadedUrls = await uploadPhotos(
-          localSteps.map((s) => ({ uri: s.uri!, folder: "assemblies" }))
+          localSteps.map((s) => ({ uri: s.uri!, folder: "assemblies", vin: assembly.vin, photoType: s.photoType }))
         );
         const photosBatch = localSteps.map((s, i) => ({
           uri: uploadedUrls[i],
@@ -433,7 +433,7 @@ export default function AssemblyDetailScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     let uploadedPhotoUri: string | undefined;
     if (defectPhotoUri) {
-      try { uploadedPhotoUri = await uploadPhoto(defectPhotoUri, "assemblies"); } catch {}
+      try { uploadedPhotoUri = await uploadPhoto(defectPhotoUri, "assemblies", assembly.vin, "defect"); } catch {}
     }
     addDefect(assembly.id, { description: defectText.trim(), severity: defectSeverity, resolved: false, photoUri: uploadedPhotoUri });
     setDefectText("");
