@@ -22,7 +22,7 @@ router.get("/assemblies", async (req, res) => {
         COALESCE(
           json_agg(DISTINCT jsonb_build_object(
             'id', d.id, 'description', d.description, 'severity', d.severity,
-            'resolved', d.resolved, 'created_at', d.created_at
+            'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri
           )) FILTER (WHERE d.id IS NOT NULL), '[]'
         ) AS defects,
         COALESCE(
@@ -69,7 +69,7 @@ router.get("/assemblies/:id", async (req, res) => {
         COALESCE(
           json_agg(DISTINCT jsonb_build_object(
             'id', d.id, 'description', d.description, 'severity', d.severity,
-            'resolved', d.resolved, 'created_at', d.created_at
+            'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri
           )) FILTER (WHERE d.id IS NOT NULL), '[]'
         ) AS defects,
         COALESCE(
@@ -258,7 +258,7 @@ router.patch("/assemblies/:id", requireRole("field", "admin"), async (req, res) 
         COALESCE(
           json_agg(DISTINCT jsonb_build_object(
             'id', d.id, 'description', d.description, 'severity', d.severity,
-            'resolved', d.resolved, 'created_at', d.created_at
+            'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri
           )) FILTER (WHERE d.id IS NOT NULL), '[]'
         ) AS defects,
         COALESCE(
@@ -334,14 +334,14 @@ router.post("/assemblies/:id/photos/bulk", requireRole("field", "admin"), async 
   }
 });
 
-router.post("/assemblies/:id/defects", requireRole("field", "admin"), async (req, res) => {
+router.post("/assemblies/:id/defects", requireRole("field", "admin", "customer"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { description, severity } = req.body;
+    const { description, severity, photoUri } = req.body;
     const [row] = await query(
-      `INSERT INTO defects (assembly_id, description, severity, resolved, created_at)
-       VALUES ($1, $2, $3, false, NOW()) RETURNING *`,
-      [id, description, severity]
+      `INSERT INTO defects (assembly_id, description, severity, resolved, photo_uri, created_at)
+       VALUES ($1, $2, $3, false, $4, NOW()) RETURNING *`,
+      [id, description, severity, photoUri ?? null]
     );
     res.status(201).json(row);
   } catch {

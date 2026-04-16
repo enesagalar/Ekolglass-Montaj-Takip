@@ -93,10 +93,7 @@ export function getBrandName(vehicleModel: string): string {
 export const DEFAULT_CONSUMABLES: Consumable[] = [
   { id: "c1", name: "Silikon", unit: "adet", stock: 0, category: "chemical" },
   { id: "c2", name: "Primer", unit: "adet", stock: 0, category: "chemical" },
-  { id: "c3", name: "Köpük", unit: "adet", stock: 0, category: "chemical" },
   { id: "c4", name: "Bant", unit: "metre", stock: 0, category: "tool" },
-  { id: "c5", name: "Temizlik Bezi", unit: "adet", stock: 0, category: "tool" },
-  { id: "c6", name: "Koruyucu Örtü", unit: "adet", stock: 0, category: "other" },
 ];
 
 export const CUSTOMER_NAME = "ISRI";
@@ -127,6 +124,7 @@ export interface DefectRecord {
   severity: "low" | "medium" | "high";
   resolved: boolean;
   timestamp: string;
+  photoUri?: string;
 }
 
 export interface AssemblyRecord {
@@ -225,6 +223,7 @@ function dbRowToAssembly(row: any): AssemblyRecord {
       severity: d.severity,
       resolved: d.resolved,
       timestamp: d.created_at,
+      photoUri: d.photo_uri ? toProxyUri(d.photo_uri) : undefined,
     })),
     notes: row.notes ?? "",
     createdAt: row.created_at,
@@ -519,6 +518,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       severity: data.severity,
       resolved: data.resolved,
       timestamp: data.created_at,
+      photoUri: data.photo_uri ? toProxyUri(data.photo_uri) : undefined,
     };
     setAssemblies((prev) => prev.map((a) =>
       a.id === assemblyId ? { ...a, defects: [...a.defects, newDefect], updatedAt: new Date().toISOString() } : a

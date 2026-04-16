@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "@/context/AppContext";
-import { useColors } from "@/hooks/useColors";
+import { toggleTheme, useColors } from "@/hooks/useColors";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Yönetici",
@@ -116,6 +116,22 @@ export default function ProfileScreen() {
           />
         </View>
       )}
+
+      {/* Theme toggle */}
+      <View style={[styles.actionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable
+          onPress={async () => { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); toggleTheme(); }}
+          style={({ pressed }) => [styles.actionRow, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.primary + "15" }]}>
+            <Feather name={colors.isDark ? "sun" : "moon"} size={16} color={colors.primary} />
+          </View>
+          <Text style={[styles.actionLabel, { color: colors.foreground }]}>
+            {colors.isDark ? "Aydınlık Mod" : "Karanlık Mod"}
+          </Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </Pressable>
+      </View>
 
       {/* Logout */}
       <Pressable

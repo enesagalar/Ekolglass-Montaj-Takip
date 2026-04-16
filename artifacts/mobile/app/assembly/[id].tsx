@@ -29,7 +29,7 @@ import {
   useApp,
 } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
-import { uploadPhotos } from "@/lib/upload";
+import { uploadPhoto, uploadPhotos } from "@/lib/upload";
 
 const STATUS_FLOW: AssemblyStatus[] = [
   "pending",
@@ -139,6 +139,7 @@ export default function AssemblyDetailScreen() {
 
   const [defectText, setDefectText] = useState("");
   const [defectSeverity, setDefectSeverity] = useState<"low" | "medium" | "high">("low");
+  const [defectPhotoUri, setDefectPhotoUri] = useState<string | null>(null);
   const [showDefectForm, setShowDefectForm] = useState(false);
   const [photoType, setPhotoType] = useState<PhotoType>("other");
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoRecord | null>(null);
@@ -430,11 +431,38 @@ export default function AssemblyDetailScreen() {
   const handleAddDefect = async () => {
     if (!defectText.trim()) return;
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    addDefect(assembly.id, { description: defectText.trim(), severity: defectSeverity, resolved: false });
+    let uploadedPhotoUri: string | undefined;
+    if (defectPhotoUri) {
+      try { uploadedPhotoUri = await uploadPhoto(defectPhotoUri, "assemblies"); } catch {}
+    }
+    addDefect(assembly.id, { description: defectText.trim(), severity: defectSeverity, resolved: false, photoUri: uploadedPhotoUri });
     setDefectText("");
     setDefectSeverity("low");
+    setDefectPhotoUri(null);
     setShowDefectForm(false);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handlePickDefectPhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      const gallPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!gallPerm.granted) return;
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85 });
+      if (!r.canceled) setDefectPhotoUri(r.assets[0].uri);
+      return;
+    }
+    Alert.alert("Fotoğraf", "Kusur fotoğrafı nasıl eklensin?", [
+      { text: "Kamera", onPress: async () => {
+        const r = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85 });
+        if (!r.canceled) setDefectPhotoUri(r.assets[0].uri);
+      }},
+      { text: "Galeri", onPress: async () => {
+        const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85 });
+        if (!r.canceled) setDefectPhotoUri(r.assets[0].uri);
+      }},
+      { text: "İptal", style: "cancel" },
+    ]);
   };
 
   const handleToggleDefect = async (defect: DefectRecord) => {
@@ -862,21 +890,29 @@ export default function AssemblyDetailScreen() {
         </View>
 
         {/* --- Defects --- */}
+        {(canEdit || (isCustomer && assembly.status === "water_test_failed")) && (
         <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionTitleRow}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               Kusurlar{assembly.defects.length > 0 ? ` (${openDefectCount} açık)` : ""}
             </Text>
-            {canEdit && (
-              <Pressable
-                onPress={() => setShowDefectForm(!showDefectForm)}
-                style={[styles.addDefectBtn, { backgroundColor: colors.destructive + "15" }]}
-              >
-                <Feather name="plus" size={14} color={colors.destructive} />
-                <Text style={[styles.addDefectText, { color: colors.destructive }]}>Ekle</Text>
-              </Pressable>
-            )}
+            <Pressable
+              onPress={() => setShowDefectForm(!showDefectForm)}
+              style={[styles.addDefectBtn, { backgroundColor: colors.destructive + "15" }]}
+            >
+              <Feather name="plus" size={14} color={colors.destructive} />
+              <Text style={[styles.addDefectText, { color: colors.destructive }]}>Bildir</Text>
+            </Pressable>
           </View>
+
+          {isCustomer && assembly.status === "water_test_failed" && (
+            <View style={[styles.infoBox, { backgroundColor: colors.warning + "12", borderColor: colors.warning + "30" }]}>
+              <Feather name="alert-triangle" size={13} color={colors.warning} />
+              <Text style={[styles.infoBoxText, { color: colors.warning }]}>
+                Su testinden kaldı. Araç üzerindeki kusuru fotoğrafla birlikte bildirebilirsiniz.
+              </Text>
+            </View>
+          )}
 
           {showDefectForm && (
             <View style={[styles.defectForm, { backgroundColor: colors.muted, borderColor: colors.border }]}>
@@ -888,25 +924,38 @@ export default function AssemblyDetailScreen() {
                 style={[styles.defectInput, { color: colors.foreground }]}
                 multiline
               />
-              <View style={styles.severityRow}>
-                {(["low", "medium", "high"] as const).map((s) => (
-                  <Pressable
-                    key={s}
-                    onPress={() => setDefectSeverity(s)}
-                    style={[
-                      styles.severityChip,
-                      {
-                        backgroundColor: defectSeverity === s ? SEVERITY_COLORS[s] + "25" : "transparent",
-                        borderColor: defectSeverity === s ? SEVERITY_COLORS[s] : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.severityText, { color: defectSeverity === s ? SEVERITY_COLORS[s] : colors.mutedForeground }]}>
-                      {SEVERITY_LABELS[s]}
-                    </Text>
+              {!isCustomer && (
+                <View style={styles.severityRow}>
+                  {(["low", "medium", "high"] as const).map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => setDefectSeverity(s)}
+                      style={[
+                        styles.severityChip,
+                        {
+                          backgroundColor: defectSeverity === s ? SEVERITY_COLORS[s] + "25" : "transparent",
+                          borderColor: defectSeverity === s ? SEVERITY_COLORS[s] : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.severityText, { color: defectSeverity === s ? SEVERITY_COLORS[s] : colors.mutedForeground }]}>
+                        {SEVERITY_LABELS[s]}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              <Pressable onPress={handlePickDefectPhoto} style={[styles.defectPhotoBtn, { borderColor: defectPhotoUri ? colors.success : colors.border }]}>
+                <Feather name={defectPhotoUri ? "check-circle" : "camera"} size={15} color={defectPhotoUri ? colors.success : colors.mutedForeground} />
+                <Text style={[styles.defectPhotoBtnText, { color: defectPhotoUri ? colors.success : colors.mutedForeground }]}>
+                  {defectPhotoUri ? "Fotoğraf seçildi" : "Fotoğraf ekle (opsiyonel)"}
+                </Text>
+                {defectPhotoUri && (
+                  <Pressable onPress={() => setDefectPhotoUri(null)}>
+                    <Feather name="x" size={14} color={colors.mutedForeground} />
                   </Pressable>
-                ))}
-              </View>
+                )}
+              </Pressable>
               <Pressable onPress={handleAddDefect} style={[styles.defectSubmit, { backgroundColor: colors.destructive }]}>
                 <Text style={styles.defectSubmitText}>Kaydet</Text>
               </Pressable>
@@ -937,12 +986,21 @@ export default function AssemblyDetailScreen() {
                     <Text style={[styles.defectMeta, { color: colors.mutedForeground }]}>
                       {SEVERITY_LABELS[d.severity]} · {new Date(d.timestamp).toLocaleString("tr-TR")}
                     </Text>
+                    {d.photoUri && (
+                      <ExpoImage
+                        source={{ uri: d.photoUri }}
+                        style={styles.defectPhoto}
+                        contentFit="cover"
+                        cachePolicy="disk"
+                      />
+                    )}
                   </View>
                 </Pressable>
               ))}
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
       {/* --- Capture Flow Overlay --- */}
@@ -1171,6 +1229,11 @@ const styles = StyleSheet.create({
   defectInfo: { flex: 1, gap: 3 },
   defectDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   defectMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  defectPhoto: { width: "100%", height: 160, borderRadius: 8, marginTop: 6 },
+  defectPhotoBtn: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, borderStyle: "dashed" },
+  defectPhotoBtnText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
+  infoBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, borderRadius: 10, borderWidth: 1 },
+  infoBoxText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
   captureOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 },
   captureHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
