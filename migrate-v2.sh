@@ -5,7 +5,16 @@
 set -e
 echo "=== Migration v2 ==="
 
-DB_CONTAINER="ekolglass-postgres-1"
+# Postgres container'ı otomatik bul
+DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -i postgres | head -1)
+
+if [ -z "$DB_CONTAINER" ]; then
+  echo "HATA: Postgres container bulunamadı. Mevcut container'lar:"
+  docker ps --format '{{.Names}}'
+  exit 1
+fi
+
+echo "Kullanılan container: $DB_CONTAINER"
 
 run_sql() {
   docker exec "$DB_CONTAINER" psql -U postgres -d ekolglass -c "$1"
