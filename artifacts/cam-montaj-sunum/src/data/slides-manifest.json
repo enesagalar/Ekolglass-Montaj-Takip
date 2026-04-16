@@ -1,0 +1,58 @@
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "position": 1,
+    "filepath": "src/pages/slides/Kapak.tsx",
+    "title": "Kapak",
+    "description": "Cam Montaj Takip - Ana baslik slaytı",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "position": 2,
+    "filepath": "src/pages/slides/Sorun.tsx",
+    "title": "Sorun",
+    "description": "Eski kağıt yönteminin yarattığı problemler",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+    "position": 3,
+    "filepath": "src/pages/slides/Roller.tsx",
+    "title": "3 Rol",
+    "description": "Admin, Personel ve Müşteri rolleri",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d4e5f6a7-b8c9-0123-def0-123456789003",
+    "position": 4,
+    "filepath": "src/pages/slides/MontajAkisi.tsx",
+    "title": "Montaj Akışı",
+    "description": "5 adımlık montaj süreci",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e5f6a7b8-c9d0-1234-ef01-234567890004",
+    "position": 5,
+    "filepath": "src/pages/slides/Ozellikler.tsx",
+    "title": "Özellikler",
+    "description": "Temel uygulama özellikleri",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f6a7b8c9-d0e1-2345-f012-345678900005",
+    "position": 6,
+    "filepath": "src/pages/slides/FotografKusur.tsx",
+    "title": "Fotoğraf ve Kusur",
+    "description": "Fotoğraf yönetimi ve kusur bildirimi",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a7b8c9d0-e1f2-3456-0123-456789000006",
+    "position": 7,
+    "filepath": "src/pages/slides/Kapanis.tsx",
+    "title": "Kapanış",
+    "description": "Ekolglass ISRI kapanış slaytı",
+    "speakerNotes": ""
+  }
+]

@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/cam-montaj-sunum/"
+title = "Cam Montaj Takip Sunumu"
+version = "1.0.0"
+id = "artifacts/cam-montaj-sunum"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/cam-montaj-sunum/" ]
+localPort = 22852
+
+[services.development]
+run = "pnpm --filter @workspace/cam-montaj-sunum run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/cam-montaj-sunum", "run", "build" ]
+publicDir = "artifacts/cam-montaj-sunum/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22852"
+BASE_PATH = "/cam-montaj-sunum/"

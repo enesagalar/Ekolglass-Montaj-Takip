@@ -6,6 +6,18 @@ uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "n2QZ5AvlnfYScpCHj1DEj"
+uri = "file://artifacts/cam-montaj-sunum/public/hero-install.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4uDaWfT4MfnqXKxx7QUIH"
+uri = "file://artifacts/cam-montaj-sunum/public/phone-app.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "UQKQaRb0-3lwWEBbyYDuP"
 uri = "file://SUNUCU-KILAVUZU.md"
