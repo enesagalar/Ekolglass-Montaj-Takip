@@ -23,9 +23,12 @@ run_sql() {
 echo "defects tablosuna photo_uri kolonu ekleniyor..."
 run_sql "ALTER TABLE defects ADD COLUMN IF NOT EXISTS photo_uri TEXT;"
 
+echo "defects tablosuna added_by_role kolonu ekleniyor..."
+run_sql "ALTER TABLE defects ADD COLUMN IF NOT EXISTS added_by_role TEXT DEFAULT 'field';"
+
 echo "Köpük, Temizlik Bezi, Koruyucu Örtü kaldırılıyor..."
 run_sql "DELETE FROM consumables WHERE name IN ('Köpük', 'Temizlik Bezi', 'Koruyucu Örtü');"
 
 echo ""
 echo "=== Migration Tamamlandı ==="
-run_sql "SELECT name, stock FROM consumables ORDER BY name;"
+run_sql "SELECT column_name FROM information_schema.columns WHERE table_name='defects' ORDER BY ordinal_position;"

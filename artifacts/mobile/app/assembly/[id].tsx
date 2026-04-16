@@ -884,11 +884,10 @@ export default function AssemblyDetailScreen() {
         </View>
 
         {/* --- Defects --- */}
-        {(canEdit || (isCustomer && assembly.status === "water_test_failed")) && (
         <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionTitleRow}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Kusurlar{assembly.defects.length > 0 ? ` (${openDefectCount} açık)` : ""}
+              {isCustomer ? "Kusur Bildir" : `Kusurlar${assembly.defects.length > 0 ? ` (${openDefectCount} açık)` : ""}`}
             </Text>
             <Pressable
               onPress={() => setShowDefectForm(!showDefectForm)}
@@ -899,11 +898,11 @@ export default function AssemblyDetailScreen() {
             </Pressable>
           </View>
 
-          {isCustomer && assembly.status === "water_test_failed" && (
-            <View style={[styles.infoBox, { backgroundColor: colors.warning + "12", borderColor: colors.warning + "30" }]}>
-              <Feather name="alert-triangle" size={13} color={colors.warning} />
-              <Text style={[styles.infoBoxText, { color: colors.warning }]}>
-                Su testinden kaldı. Araç üzerindeki kusuru fotoğrafla birlikte bildirebilirsiniz.
+          {isCustomer && (
+            <View style={[styles.infoBox, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "25" }]}>
+              <Feather name="info" size={13} color={colors.primary} />
+              <Text style={[styles.infoBoxText, { color: colors.mutedForeground }]}>
+                Araçta gördüğünüz kusuru açıklama ve fotoğrafla bildirebilirsiniz.
               </Text>
             </View>
           )}
@@ -975,44 +974,57 @@ export default function AssemblyDetailScreen() {
           )}
 
           {assembly.defects.length === 0 ? (
-            <Text style={[styles.emptyDefects, { color: colors.mutedForeground }]}>Kayıtlı kusur yok</Text>
+            <Text style={[styles.emptyDefects, { color: colors.mutedForeground }]}>
+              {isCustomer ? "Henüz kusur bildirmediniz" : "Kayıtlı kusur yok"}
+            </Text>
           ) : (
             <View style={styles.defectList}>
-              {assembly.defects.map((d) => (
-                <Pressable
-                  key={d.id}
-                  onPress={() => canEdit && handleToggleDefect(d)}
-                  style={[
-                    styles.defectItem,
-                    {
-                      backgroundColor: d.resolved ? colors.success + "10" : colors.destructive + "08",
-                      borderColor: d.resolved ? colors.success + "30" : colors.destructive + "20",
-                    },
-                  ]}
-                >
-                  <Feather name={d.resolved ? "check-circle" : "alert-circle"} size={16} color={d.resolved ? colors.success : SEVERITY_COLORS[d.severity]} />
-                  <View style={styles.defectInfo}>
-                    <Text style={[styles.defectDesc, { color: d.resolved ? colors.mutedForeground : colors.foreground, textDecorationLine: d.resolved ? "line-through" : "none" }]}>
-                      {d.description}
-                    </Text>
-                    <Text style={[styles.defectMeta, { color: colors.mutedForeground }]}>
-                      {SEVERITY_LABELS[d.severity]} · {new Date(d.timestamp).toLocaleString("tr-TR")}
-                    </Text>
-                    {d.photoUri && (
-                      <ExpoImage
-                        source={{ uri: d.photoUri }}
-                        style={styles.defectPhoto}
-                        contentFit="cover"
-                        cachePolicy="disk"
-                      />
-                    )}
-                  </View>
-                </Pressable>
-              ))}
+              {assembly.defects.map((d) => {
+                const isFromCustomer = d.addedByRole === "customer";
+                return (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => canEdit && handleToggleDefect(d)}
+                    style={[
+                      styles.defectItem,
+                      {
+                        backgroundColor: d.resolved ? colors.success + "10" : colors.destructive + "08",
+                        borderColor: d.resolved ? colors.success + "30" : colors.destructive + "20",
+                      },
+                    ]}
+                  >
+                    <Feather name={d.resolved ? "check-circle" : "alert-circle"} size={16} color={d.resolved ? colors.success : SEVERITY_COLORS[d.severity]} />
+                    <View style={styles.defectInfo}>
+                      <View style={styles.defectTopRow}>
+                        <Text style={[styles.defectDesc, { flex: 1, color: d.resolved ? colors.mutedForeground : colors.foreground, textDecorationLine: d.resolved ? "line-through" : "none" }]}>
+                          {d.description}
+                        </Text>
+                        {isAdmin && (
+                          <View style={[styles.defectRoleBadge, { backgroundColor: isFromCustomer ? "#f59e0b20" : "#3b82f620" }]}>
+                            <Text style={[styles.defectRoleBadgeText, { color: isFromCustomer ? "#f59e0b" : "#3b82f6" }]}>
+                              {isFromCustomer ? "Müşteri" : "Personel"}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.defectMeta, { color: colors.mutedForeground }]}>
+                        {SEVERITY_LABELS[d.severity]} · {new Date(d.timestamp).toLocaleString("tr-TR")}
+                      </Text>
+                      {d.photoUri && (
+                        <ExpoImage
+                          source={{ uri: d.photoUri }}
+                          style={styles.defectPhoto}
+                          contentFit="cover"
+                          cachePolicy="disk"
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
         </View>
-        )}
       </ScrollView>
 
       {/* --- Capture Flow Overlay --- */}
@@ -1239,8 +1251,11 @@ const styles = StyleSheet.create({
   defectList: { gap: 8 },
   defectItem: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
   defectInfo: { flex: 1, gap: 3 },
+  defectTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
   defectDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   defectMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  defectRoleBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, flexShrink: 0 },
+  defectRoleBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   defectPhoto: { width: "100%", height: 160, borderRadius: 8, marginTop: 6 },
   defectPhotoBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 10, borderWidth: 1.5 },
   defectPhotoBtnIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },

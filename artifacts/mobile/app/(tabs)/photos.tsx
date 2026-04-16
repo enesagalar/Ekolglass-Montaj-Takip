@@ -63,6 +63,7 @@ interface FlatPhoto {
   vinLast5?: string;
   vehicleModel?: string;
   capturedAt?: string;
+  addedByRole?: string;
 }
 
 export default function PhotosScreen() {
@@ -125,6 +126,22 @@ export default function PhotosScreen() {
           vehicleModel: a.vehicleModel,
         });
       }
+
+      a.defects.forEach((d) => {
+        if (d.photoUri) {
+          result.push({
+            id: `defect-${d.id}`,
+            uri: d.photoUri,
+            type: "defect",
+            assemblyId: a.id,
+            vin: a.vin,
+            vinLast5: a.vinLast5,
+            vehicleModel: a.vehicleModel,
+            capturedAt: d.timestamp,
+            addedByRole: d.addedByRole,
+          });
+        }
+      });
     });
 
     return result.sort((a, b) => (b.capturedAt ?? "").localeCompare(a.capturedAt ?? ""));

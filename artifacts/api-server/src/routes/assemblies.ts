@@ -6,6 +6,15 @@ const router = Router();
 
 router.use(requireAuth);
 
+function defectAgg(role: string): string {
+  const fields = `'id', d.id, 'description', d.description, 'severity', d.severity, 'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri, 'added_by_role', COALESCE(d.added_by_role, 'field')`;
+  const base = `d.id IS NOT NULL`;
+  let roleFilter = "";
+  if (role === "customer") roleFilter = ` AND COALESCE(d.added_by_role, 'field') = 'customer'`;
+  else if (role === "field") roleFilter = ` AND COALESCE(d.added_by_role, 'field') <> 'customer'`;
+  return `COALESCE(json_agg(DISTINCT jsonb_build_object(${fields})) FILTER (WHERE ${base}${roleFilter}), '[]') AS defects`;
+}
+
 router.get("/assemblies", async (req, res) => {
   try {
     const user = (req as any).user as JwtPayload;
@@ -19,12 +28,7 @@ router.get("/assemblies", async (req, res) => {
             'angle', p.angle, 'note', p.note, 'created_at', p.created_at
           )) FILTER (WHERE p.id IS NOT NULL), '[]'
         ) AS photos,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'id', d.id, 'description', d.description, 'severity', d.severity,
-            'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri
-          )) FILTER (WHERE d.id IS NOT NULL), '[]'
-        ) AS defects,
+        ${defectAgg(user.role)},
         COALESCE(
           json_agg(DISTINCT jsonb_build_object(
             'id', l.id, 'action', l.action, 'user_id', l.user_id,
@@ -57,6 +61,7 @@ router.get("/assemblies", async (req, res) => {
 router.get("/assemblies/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const user = (req as any).user as JwtPayload;
     const [row] = await query(
       `SELECT
         a.*,
@@ -66,12 +71,7 @@ router.get("/assemblies/:id", async (req, res) => {
             'angle', p.angle, 'note', p.note, 'created_at', p.created_at
           )) FILTER (WHERE p.id IS NOT NULL), '[]'
         ) AS photos,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'id', d.id, 'description', d.description, 'severity', d.severity,
-            'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri
-          )) FILTER (WHERE d.id IS NOT NULL), '[]'
-        ) AS defects,
+        ${defectAgg(user.role)},
         COALESCE(
           json_agg(DISTINCT jsonb_build_object(
             'id', l.id, 'action', l.action, 'user_id', l.user_id,
@@ -255,12 +255,7 @@ router.patch("/assemblies/:id", requireRole("field", "admin"), async (req, res) 
             'angle', p.angle, 'note', p.note, 'created_at', p.created_at
           )) FILTER (WHERE p.id IS NOT NULL), '[]'
         ) AS photos,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'id', d.id, 'description', d.description, 'severity', d.severity,
-            'resolved', d.resolved, 'created_at', d.created_at, 'photo_uri', d.photo_uri
-          )) FILTER (WHERE d.id IS NOT NULL), '[]'
-        ) AS defects,
+        ${defectAgg(user.role)},
         COALESCE(
           json_agg(DISTINCT jsonb_build_object(
             'id', l.id, 'action', l.action, 'user_id', l.user_id,
@@ -372,11 +367,13 @@ router.post("/assemblies/:id/photos/bulk", requireRole("field", "admin"), async 
 router.post("/assemblies/:id/defects", requireRole("field", "admin", "customer"), async (req, res) => {
   try {
     const { id } = req.params;
+    const user = (req as any).user as JwtPayload;
     const { description, severity, photoUri } = req.body;
+    const effectiveSeverity = user.role === "customer" ? "medium" : (severity ?? "low");
     const [row] = await query(
-      `INSERT INTO defects (assembly_id, description, severity, resolved, photo_uri, created_at)
-       VALUES ($1, $2, $3, false, $4, NOW()) RETURNING *`,
-      [id, description, severity, photoUri ?? null]
+      `INSERT INTO defects (assembly_id, description, severity, resolved, photo_uri, added_by_role, created_at)
+       VALUES ($1, $2, $3, false, $4, $5, NOW()) RETURNING *`,
+      [id, description, effectiveSeverity, photoUri ?? null, user.role]
     );
     res.status(201).json(row);
   } catch {

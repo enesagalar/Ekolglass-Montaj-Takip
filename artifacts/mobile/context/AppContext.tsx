@@ -125,6 +125,7 @@ export interface DefectRecord {
   resolved: boolean;
   timestamp: string;
   photoUri?: string;
+  addedByRole?: "field" | "admin" | "customer";
 }
 
 export interface AssemblyRecord {
@@ -224,6 +225,7 @@ function dbRowToAssembly(row: any): AssemblyRecord {
       resolved: d.resolved,
       timestamp: d.created_at,
       photoUri: d.photo_uri ? toProxyUri(d.photo_uri) : undefined,
+      addedByRole: d.added_by_role ?? "field",
     })),
     notes: row.notes ?? "",
     createdAt: row.created_at,
