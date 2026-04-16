@@ -17,7 +17,7 @@ fi
 echo "Kullanılan container: $DB_CONTAINER"
 
 run_sql() {
-  docker exec "$DB_CONTAINER" psql -U postgres -d ekolglass -c "$1"
+  docker exec "$DB_CONTAINER" psql -U ekolglass -d ekolglass -c "$1"
 }
 
 echo "defects tablosuna photo_uri kolonu ekleniyor..."
