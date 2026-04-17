@@ -29,7 +29,9 @@ const TR_DAYS   = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","
 
 function displayDate(iso: string): string {
   if (!iso) return "";
-  const [y, m, d] = iso.split("-");
+  const dateOnly = iso.length > 10 ? iso.slice(0, 10) : iso;
+  const [y, m, d] = dateOnly.split("-");
+  if (!y || !m || !d) return iso;
   const dt = new Date(Number(y), Number(m) - 1, Number(d));
   return `${d} ${TR_MONTHS[Number(m) - 1]} ${y}, ${TR_DAYS[dt.getDay()]}`;
 }

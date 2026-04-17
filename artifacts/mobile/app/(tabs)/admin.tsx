@@ -227,15 +227,42 @@ export default function AdminScreen() {
         </>
       )}
 
-      {/* Admin actions */}
-      <View style={[styles.actionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <ActionRow icon="users" label="Kullanıcı Yönetimi" onPress={() => router.push("/manage-users" as any)} colors={colors} />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <ActionRow icon="plus-circle" label="Yeni Kayıt" onPress={() => router.push("/new-assembly")} colors={colors} />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <ActionRow icon="package" label="Stok Yönetimi" onPress={() => router.push("/(tabs)/stock" as any)} colors={colors} />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <ActionRow icon="file-text" label="ISRI Talepleri" onPress={() => router.push("/(tabs)/requests" as any)} colors={colors} />
+      {/* Admin Quick Actions — 2×2 grid */}
+      <Text style={[styles.section, { color: colors.mutedForeground }]}>HIZLI İŞLEMLER</Text>
+      <View style={styles.actionsGrid}>
+        <QuickAction
+          icon="plus-circle"
+          label="Yeni Kayıt"
+          sub="Montaj ekle"
+          color="#0a84ff"
+          onPress={() => router.push("/new-assembly")}
+          colors={colors}
+        />
+        <QuickAction
+          icon="users"
+          label="Kullanıcılar"
+          sub="Hesap yönetimi"
+          color="#8b5cf6"
+          onPress={() => router.push("/manage-users" as any)}
+          colors={colors}
+        />
+        <QuickAction
+          icon="package"
+          label="Stok"
+          sub="Malzeme takibi"
+          color="#f59e0b"
+          onPress={() => router.push("/(tabs)/stock" as any)}
+          colors={colors}
+        />
+        <QuickAction
+          icon="file-text"
+          label="ISRI Talepleri"
+          sub={stats.pendingRequests > 0 ? `${stats.pendingRequests} bekleyen` : "Talep listesi"}
+          color={stats.pendingRequests > 0 ? "#ef4444" : "#10b981"}
+          onPress={() => router.push("/(tabs)/requests" as any)}
+          colors={colors}
+          badge={stats.pendingRequests > 0 ? stats.pendingRequests : undefined}
+        />
       </View>
     </ScrollView>
   );
@@ -259,17 +286,24 @@ function AlertBox({ icon, color, text, colors }: { icon: any; color: string; tex
   );
 }
 
-function ActionRow({ icon, label, onPress, colors }: { icon: any; label: string; onPress: () => void; colors: any }) {
+function QuickAction({ icon, label, sub, color, onPress, colors, badge }: {
+  icon: any; label: string; sub: string; color: string; onPress: () => void; colors: any; badge?: number;
+}) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.actionRow, { opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.78 : 1 }]}
     >
-      <View style={[styles.actionIcon, { backgroundColor: colors.primary + "15" }]}>
-        <Feather name={icon} size={16} color={colors.primary} />
+      <View style={[styles.quickActionIcon, { backgroundColor: color + "18" }]}>
+        <Feather name={icon} size={22} color={color} />
+        {badge !== undefined && (
+          <View style={[styles.quickBadge, { backgroundColor: color }]}>
+            <Text style={styles.quickBadgeText}>{badge}</Text>
+          </View>
+        )}
       </View>
-      <Text style={[styles.actionLabel, { color: colors.foreground }]}>{label}</Text>
-      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+      <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>{label}</Text>
+      <Text style={[styles.quickActionSub, { color: colors.mutedForeground }]}>{sub}</Text>
     </Pressable>
   );
 }
@@ -301,11 +335,13 @@ const styles = StyleSheet.create({
   statusBarFill: { height: "100%", borderRadius: 3 },
   statusCount: { fontSize: 12, fontFamily: "Inter_600SemiBold", width: 24, textAlign: "right" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
-  actionsCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
-  actionRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
-  actionIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  actionLabel: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
-  divider: { height: 1, marginHorizontal: 14 },
+  actionsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  quickAction: { width: "47%", borderRadius: 16, borderWidth: 1, padding: 16, gap: 8 },
+  quickActionIcon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", position: "relative" },
+  quickActionLabel: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  quickActionSub: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  quickBadge: { position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  quickBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#fff" },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   seeAllText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   reqPreviewCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 6 },

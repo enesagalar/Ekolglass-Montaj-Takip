@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Modal,
   Platform,
@@ -373,11 +374,22 @@ export default function PhotosScreen() {
           </Text>
         </ScrollView>
       ) : (
-        <ScrollView
-          contentContainerStyle={[
-            styles.grid,
-            { paddingBottom: bottomPad, paddingTop: 8 },
-          ]}
+        <FlatList
+          data={filtered}
+          numColumns={cols}
+          key={String(cols)}
+          keyExtractor={(p) => p.id}
+          renderItem={({ item: photo }) => (
+            <PhotoGridItem
+              photo={photo}
+              size={photoSize}
+              onPress={() => openPhoto(photo)}
+            />
+          )}
+          removeClippedSubviews
+          maxToRenderPerBatch={9}
+          initialNumToRender={12}
+          windowSize={5}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -386,18 +398,9 @@ export default function PhotosScreen() {
               tintColor={colors.primary}
             />
           }
-        >
-          <View style={styles.gridRow}>
-            {filtered.map((photo) => (
-              <PhotoGridItem
-                key={photo.id}
-                photo={photo}
-                size={photoSize}
-                onPress={() => openPhoto(photo)}
-              />
-            ))}
-          </View>
-        </ScrollView>
+          contentContainerStyle={{ paddingBottom: bottomPad, paddingTop: 8, paddingHorizontal: 16 }}
+          columnWrapperStyle={{ gap: 4, marginBottom: 4 }}
+        />
       )}
 
       {/* Fullscreen Viewer */}

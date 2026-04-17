@@ -1,9 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -39,6 +40,8 @@ function getBrandName(vehicleModel: string): string {
   return VEHICLE_BRANDS.find((b) => b.id === vehicleModel)?.name ?? vehicleModel;
 }
 
+const INVOICE_PREFIX = `EKL${new Date().getFullYear()}`;
+
 const STATUS_LABEL: Record<string, string> = {
   pending: "Beklemede",
   cutting: "Kesimde",
@@ -49,6 +52,17 @@ const STATUS_LABEL: Record<string, string> = {
   water_test_failed: "Test Başarısız",
   completed: "Tamamlandı",
 };
+
+const STATUS_FILTER_OPTIONS = [
+  { label: "Tümü", value: "all" },
+  { label: "Beklemede", value: "pending" },
+  { label: "Kesimde", value: "cutting" },
+  { label: "Kesim Tamam", value: "cutting_done" },
+  { label: "Montajda", value: "installation" },
+  { label: "Montaj Tamam", value: "installation_done" },
+  { label: "Su Testi", value: "water_test" },
+  { label: "Tamamlandı", value: "completed" },
+];
 
 export default function AccountingScreen() {
   const colors = useColors();
@@ -65,9 +79,13 @@ export default function AccountingScreen() {
   // Modal state
   const [modalAssembly, setModalAssembly] = useState<AssemblyRecord | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [invoiceNum, setInvoiceNum] = useState("");
+  const [invoiceSuffix, setInvoiceSuffix] = useState(""); // 5-digit suffix only
   const [invoiceNotes, setInvoiceNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Filter state
+  const [vinSearch, setVinSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -98,37 +116,43 @@ export default function AccountingScreen() {
 
   const openModal = (assembly: AssemblyRecord) => {
     const existing = invoiceMap.get(assembly.id);
+    const existingNum = existing?.invoice_number ?? "";
+    const suffix = existingNum.startsWith(INVOICE_PREFIX)
+      ? existingNum.slice(INVOICE_PREFIX.length)
+      : existingNum;
     setModalAssembly(assembly);
     setEditingInvoice(existing ?? null);
-    setInvoiceNum(existing?.invoice_number ?? "");
+    setInvoiceSuffix(suffix);
     setInvoiceNotes(existing?.notes ?? "");
   };
 
   const closeModal = () => {
     setModalAssembly(null);
     setEditingInvoice(null);
-    setInvoiceNum("");
+    setInvoiceSuffix("");
     setInvoiceNotes("");
   };
 
   const handleSave = async () => {
     if (!modalAssembly) return;
-    if (!invoiceNum.trim()) {
+    const suffix = invoiceSuffix.trim();
+    if (!suffix) {
       Alert.alert("Uyarı", "Fatura numarası boş olamaz.");
       return;
     }
+    const fullInvoiceNumber = `${INVOICE_PREFIX}${suffix}`;
     setSaving(true);
     try {
       if (editingInvoice) {
         const updated = await apiPatch<Invoice>(`/invoices/${editingInvoice.id}`, {
-          invoiceNumber: invoiceNum.trim(),
+          invoiceNumber: fullInvoiceNumber,
           notes: invoiceNotes,
         });
         setInvoices((prev) => prev.map((i) => i.id === updated.id ? updated : i));
       } else {
         const created = await apiPost<Invoice>("/invoices", {
           assemblyId: modalAssembly.id,
-          invoiceNumber: invoiceNum.trim(),
+          invoiceNumber: fullInvoiceNumber,
           notes: invoiceNotes,
         });
         setInvoices((prev) => [created, ...prev]);
@@ -140,6 +164,23 @@ export default function AccountingScreen() {
       setSaving(false);
     }
   };
+
+  const filteredAssemblies = useMemo(() => {
+    let list = [...assemblies].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+    if (statusFilter !== "all") {
+      list = list.filter((a) => a.status === statusFilter);
+    }
+    const q = vinSearch.trim().toUpperCase();
+    if (q) {
+      list = list.filter((a) =>
+        (a.vin ?? "").toUpperCase().includes(q) ||
+        (a.vinLast5 ?? "").toUpperCase().includes(q)
+      );
+    }
+    return list;
+  }, [assemblies, statusFilter, vinSearch]);
 
   const handleDelete = (inv: Invoice) => {
     Alert.alert("Faturayı Sil", `${inv.invoice_number} silinsin mi?`, [
@@ -160,17 +201,53 @@ export default function AccountingScreen() {
 
   // Accounting + Admin: list of assemblies (can add/edit invoice)
   if (role === "accounting" || role === "admin") {
-    const sortedAssemblies = [...assemblies].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header */}
         <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <Text style={[styles.title, { color: colors.foreground }]}>Faturalar</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {assemblies.length} montaj · {invoices.length} fatura girilmiş
+            {filteredAssemblies.length} montaj · {invoices.length} fatura girilmiş
           </Text>
+        </View>
+
+        {/* VIN Search */}
+        <View style={[styles.searchWrap, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: vinSearch ? colors.primary : colors.border }]}>
+            <Feather name="search" size={15} color={vinSearch ? colors.primary : colors.mutedForeground} />
+            <TextInput
+              value={vinSearch}
+              onChangeText={setVinSearch}
+              placeholder="Şase no ile ara..."
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={[styles.searchInput, { color: colors.foreground }]}
+            />
+            {vinSearch.length > 0 && (
+              <Pressable onPress={() => setVinSearch("")}>
+                <Feather name="x-circle" size={15} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* Status Filter Chips */}
+        <View style={[styles.filterWrap, { borderBottomColor: colors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {STATUS_FILTER_OPTIONS.map((opt) => {
+              const active = statusFilter === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setStatusFilter(opt.value)}
+                  style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
+                >
+                  <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.mutedForeground }]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {loadingInvoices ? (
@@ -179,7 +256,7 @@ export default function AccountingScreen() {
           </View>
         ) : (
           <FlatList
-            data={sortedAssemblies}
+            data={filteredAssemblies}
             keyExtractor={(a) => a.id}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
@@ -235,54 +312,86 @@ export default function AccountingScreen() {
 
         {/* Add/Edit Modal */}
         <Modal visible={!!modalAssembly} transparent animationType="slide" onRequestClose={closeModal}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-                {editingInvoice ? "Faturayı Düzenle" : "Fatura Ekle"}
-              </Text>
-              {modalAssembly && (
-                <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
-                  {modalAssembly.vin} · {getBrandName(modalAssembly.vehicleModel)}
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {/* Handle bar */}
+                <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                  {editingInvoice ? "Faturayı Düzenle" : "Fatura Ekle"}
                 </Text>
-              )}
-              <View style={styles.modalField}>
-                <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>FATURA NUMARASI</Text>
-                <TextInput
-                  value={invoiceNum}
-                  onChangeText={setInvoiceNum}
-                  placeholder="Örn: FAT-2026-001"
-                  placeholderTextColor={colors.mutedForeground}
-                  autoFocus
-                  style={[styles.modalInput, { color: colors.foreground, backgroundColor: colors.muted, borderColor: colors.border }]}
-                />
-              </View>
-              <View style={styles.modalField}>
-                <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>NOT (İSTEĞE BAĞLI)</Text>
-                <TextInput
-                  value={invoiceNotes}
-                  onChangeText={setInvoiceNotes}
-                  placeholder="Açıklama..."
-                  placeholderTextColor={colors.mutedForeground}
-                  multiline
-                  numberOfLines={2}
-                  style={[styles.modalInput, styles.modalInputMulti, { color: colors.foreground, backgroundColor: colors.muted, borderColor: colors.border }]}
-                />
-              </View>
-              <View style={styles.modalBtns}>
-                <Pressable onPress={closeModal} style={[styles.modalCancelBtn, { borderColor: colors.border }]}>
-                  <Text style={[styles.modalCancelText, { color: colors.mutedForeground }]}>Vazgeç</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSave}
-                  disabled={saving}
-                  style={[styles.modalSaveBtn, { backgroundColor: colors.primary }]}
-                >
-                  <Feather name="save" size={15} color="#fff" />
-                  <Text style={styles.modalSaveText}>{saving ? "Kaydediliyor..." : "Kaydet"}</Text>
-                </Pressable>
+                {modalAssembly && (
+                  <View style={styles.modalVinRow}>
+                    <Feather name="hash" size={13} color={colors.primary} />
+                    <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
+                      {modalAssembly.vin || "—"} · {getBrandName(modalAssembly.vehicleModel)}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.modalField}>
+                  <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>FATURA NUMARASI</Text>
+                  <View style={[styles.invoiceInputRow, { backgroundColor: colors.muted, borderColor: invoiceSuffix ? colors.primary : colors.border }]}>
+                    <View style={[styles.invoicePrefixBox, { borderRightColor: colors.border }]}>
+                      <Text style={[styles.invoicePrefixText, { color: colors.mutedForeground }]}>{INVOICE_PREFIX}</Text>
+                    </View>
+                    <TextInput
+                      value={invoiceSuffix}
+                      onChangeText={(t) => setInvoiceSuffix(t.replace(/[^0-9]/g, ""))}
+                      placeholder="00001"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="numeric"
+                      maxLength={5}
+                      autoFocus
+                      style={[styles.invoiceSuffixInput, { color: colors.foreground }]}
+                    />
+                    {invoiceSuffix.length > 0 && (
+                      <View style={[styles.invoicePreviewBadge, { backgroundColor: colors.primary + "15" }]}>
+                        <Text style={[styles.invoicePreviewText, { color: colors.primary }]}>
+                          {INVOICE_PREFIX}{invoiceSuffix}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.modalHint, { color: colors.mutedForeground }]}>
+                    5 haneli sıra numarasını girin · Tam kod: {INVOICE_PREFIX}{invoiceSuffix || "XXXXX"}
+                  </Text>
+                </View>
+
+                <View style={styles.modalField}>
+                  <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>NOT (İSTEĞE BAĞLI)</Text>
+                  <TextInput
+                    value={invoiceNotes}
+                    onChangeText={setInvoiceNotes}
+                    placeholder="Açıklama..."
+                    placeholderTextColor={colors.mutedForeground}
+                    multiline
+                    numberOfLines={2}
+                    style={[styles.modalInput, styles.modalInputMulti, { color: colors.foreground, backgroundColor: colors.muted, borderColor: colors.border }]}
+                  />
+                </View>
+
+                <View style={styles.modalBtns}>
+                  <Pressable onPress={closeModal} style={[styles.modalCancelBtn, { borderColor: colors.border }]}>
+                    <Text style={[styles.modalCancelText, { color: colors.mutedForeground }]}>Vazgeç</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleSave}
+                    disabled={saving || !invoiceSuffix.trim()}
+                    style={[styles.modalSaveBtn, { backgroundColor: invoiceSuffix.trim() ? colors.primary : colors.mutedForeground }]}
+                  >
+                    <Feather name="save" size={15} color="#fff" />
+                    <Text style={styles.modalSaveText}>{saving ? "Kaydediliyor..." : "Kaydet"}</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
     );
@@ -339,12 +448,6 @@ export default function AccountingScreen() {
               <Text style={[styles.invoiceCardBy, { color: colors.mutedForeground }]}>
                 Girildi: {inv.created_by_name}
               </Text>
-              {role === "admin" && (
-                <Pressable onPress={() => handleDelete(inv)} style={styles.adminDeleteBtn}>
-                  <Feather name="trash-2" size={14} color={colors.destructive} />
-                  <Text style={[styles.adminDeleteText, { color: colors.destructive }]}>Sil</Text>
-                </Pressable>
-              )}
             </View>
           )}
         />
@@ -355,13 +458,21 @@ export default function AccountingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, gap: 4 },
+  header: { paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, gap: 3 },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
   centerLoad: { flex: 1, alignItems: "center", justifyContent: "center" },
-  assemblyCard: {
-    borderRadius: 14, borderWidth: 1, padding: 14, gap: 10,
-  },
+  // Search
+  searchWrap: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  searchBox: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", height: 22 },
+  // Filter chips
+  filterWrap: { borderBottomWidth: 1 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: "row", alignItems: "center" },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  filterChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  // Assembly cards
+  assemblyCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 10 },
   assemblyCardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   vinText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   brandText: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
@@ -383,12 +494,27 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
   modalCard: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1,
-    padding: 24, gap: 16,
+    padding: 24, paddingTop: 16, gap: 16,
   },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 4 },
   modalTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  modalSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -8 },
+  modalVinRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: -8 },
+  modalSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
   modalField: { gap: 6 },
   modalLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.6 },
+  modalHint: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  // EKL invoice input
+  invoiceInputRow: {
+    flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1.5, overflow: "hidden",
+  },
+  invoicePrefixBox: {
+    paddingHorizontal: 14, height: 48, justifyContent: "center",
+    borderRightWidth: 1, backgroundColor: "transparent",
+  },
+  invoicePrefixText: { fontSize: 15, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  invoiceSuffixInput: { flex: 1, paddingHorizontal: 12, height: 48, fontSize: 18, fontFamily: "Inter_700Bold", letterSpacing: 1 },
+  invoicePreviewBadge: { paddingHorizontal: 10, marginRight: 8, paddingVertical: 4, borderRadius: 8 },
+  invoicePreviewText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   modalInput: {
     borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, height: 48,
     fontSize: 15, fontFamily: "Inter_400Regular",
