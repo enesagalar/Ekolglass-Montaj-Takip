@@ -85,7 +85,8 @@ export default function AccountingScreen() {
 
   // Filter state
   const [vinSearch, setVinSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [invoiceFilter, setInvoiceFilter] = useState<"all" | "invoiced" | "not_invoiced">("all");
+  const [brandFilter, setBrandFilter] = useState("all");
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -108,11 +109,14 @@ export default function AccountingScreen() {
     setRefreshing(false);
   }, [loadInvoices, refreshAssemblies]);
 
-  // Map assemblyId → invoice
-  const invoiceMap = new Map<string, Invoice>();
-  for (const inv of invoices) {
-    invoiceMap.set(inv.assembly_id, inv);
-  }
+  // Map assemblyId → invoice (memoized)
+  const invoiceMap = useMemo(() => {
+    const map = new Map<string, Invoice>();
+    for (const inv of invoices) {
+      map.set(inv.assembly_id, inv);
+    }
+    return map;
+  }, [invoices]);
 
   const openModal = (assembly: AssemblyRecord) => {
     const existing = invoiceMap.get(assembly.id);
@@ -165,22 +169,34 @@ export default function AccountingScreen() {
     }
   };
 
+  const invoicedCount = useMemo(() => assemblies.filter((a) => invoiceMap.has(a.id)).length, [assemblies, invoiceMap]);
+  const notInvoicedCount = useMemo(() => assemblies.filter((a) => !invoiceMap.has(a.id)).length, [assemblies, invoiceMap]);
+
   const filteredAssemblies = useMemo(() => {
     let list = [...assemblies].sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-    if (statusFilter !== "all") {
-      list = list.filter((a) => a.status === statusFilter);
+    if (invoiceFilter === "invoiced") {
+      list = list.filter((a) => invoiceMap.has(a.id));
+    } else if (invoiceFilter === "not_invoiced") {
+      list = list.filter((a) => !invoiceMap.has(a.id));
+    }
+    if (brandFilter !== "all") {
+      list = list.filter((a) => a.vehicleModel === brandFilter);
     }
     const q = vinSearch.trim().toUpperCase();
     if (q) {
-      list = list.filter((a) =>
-        (a.vin ?? "").toUpperCase().includes(q) ||
-        (a.vinLast5 ?? "").toUpperCase().includes(q)
-      );
+      list = list.filter((a) => {
+        const inv = invoiceMap.get(a.id);
+        return (
+          (a.vin ?? "").toUpperCase().includes(q) ||
+          (a.vinLast5 ?? "").toUpperCase().includes(q) ||
+          (inv?.invoice_number ?? "").toUpperCase().includes(q)
+        );
+      });
     }
     return list;
-  }, [assemblies, statusFilter, vinSearch]);
+  }, [assemblies, invoiceFilter, brandFilter, vinSearch, invoiceMap]);
 
   const handleDelete = (inv: Invoice) => {
     Alert.alert("Faturayı Sil", `${inv.invoice_number} silinsin mi?`, [
@@ -203,22 +219,33 @@ export default function AccountingScreen() {
   if (role === "accounting" || role === "admin") {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Header */}
+        {/* Header + Özet */}
         <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <Text style={[styles.title, { color: colors.foreground }]}>Faturalar</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {filteredAssemblies.length} montaj · {invoices.length} fatura girilmiş
-          </Text>
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryCard, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "25" }]}>
+              <Text style={[styles.summaryNum, { color: colors.primary }]}>{assemblies.length}</Text>
+              <Text style={[styles.summaryLbl, { color: colors.primary }]}>Toplam</Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: "#10b98115", borderColor: "#10b98130" }]}>
+              <Text style={[styles.summaryNum, { color: "#10b981" }]}>{invoicedCount}</Text>
+              <Text style={[styles.summaryLbl, { color: "#10b981" }]}>Faturalı</Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: "#f59e0b12", borderColor: "#f59e0b25" }]}>
+              <Text style={[styles.summaryNum, { color: "#f59e0b" }]}>{notInvoicedCount}</Text>
+              <Text style={[styles.summaryLbl, { color: "#f59e0b" }]}>Bekleyen</Text>
+            </View>
+          </View>
         </View>
 
-        {/* VIN Search */}
+        {/* VIN / Fatura No Arama */}
         <View style={[styles.searchWrap, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: vinSearch ? colors.primary : colors.border }]}>
             <Feather name="search" size={15} color={vinSearch ? colors.primary : colors.mutedForeground} />
             <TextInput
               value={vinSearch}
               onChangeText={setVinSearch}
-              placeholder="Şase no ile ara..."
+              placeholder="Şase no veya fatura kodu ile ara..."
               placeholderTextColor={colors.mutedForeground}
               autoCapitalize="characters"
               autoCorrect={false}
@@ -232,18 +259,43 @@ export default function AccountingScreen() {
           </View>
         </View>
 
-        {/* Status Filter Chips */}
+        {/* Fatura Durumu Filtreleri */}
         <View style={[styles.filterWrap, { borderBottomColor: colors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {STATUS_FILTER_OPTIONS.map((opt) => {
-              const active = statusFilter === opt.value;
+            {/* Fatura varlığı */}
+            {([
+              { label: "Tümü", value: "all" },
+              { label: `✓ Faturalı (${invoicedCount})`, value: "invoiced" },
+              { label: `⏳ Bekleyen (${notInvoicedCount})`, value: "not_invoiced" },
+            ] as const).map((opt) => {
+              const active = invoiceFilter === opt.value;
               return (
                 <Pressable
                   key={opt.value}
-                  onPress={() => setStatusFilter(opt.value)}
+                  onPress={() => setInvoiceFilter(opt.value)}
                   style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
                 >
                   <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.mutedForeground }]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+            <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
+            {/* Araç markası */}
+            <Pressable
+              onPress={() => setBrandFilter("all")}
+              style={[styles.filterChip, { backgroundColor: brandFilter === "all" ? "#64748b" : colors.muted, borderColor: brandFilter === "all" ? "#64748b" : colors.border }]}
+            >
+              <Text style={[styles.filterChipText, { color: brandFilter === "all" ? "#fff" : colors.mutedForeground }]}>Tüm Markalar</Text>
+            </Pressable>
+            {VEHICLE_BRANDS.map((b) => {
+              const active = brandFilter === b.id;
+              return (
+                <Pressable
+                  key={b.id}
+                  onPress={() => setBrandFilter(active ? "all" : b.id)}
+                  style={[styles.filterChip, { backgroundColor: active ? "#8b5cf6" : colors.muted, borderColor: active ? "#8b5cf6" : colors.border }]}
+                >
+                  <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.mutedForeground }]}>{b.prefix}</Text>
                 </Pressable>
               );
             })}
@@ -462,6 +514,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
   centerLoad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  // Summary
+  summaryRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  summaryCard: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 10, alignItems: "center", gap: 2 },
+  summaryNum: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  summaryLbl: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   // Search
   searchWrap: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   searchBox: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
@@ -471,6 +528,7 @@ const styles = StyleSheet.create({
   filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: "row", alignItems: "center" },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   filterChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  filterDivider: { width: 1, height: 20, marginHorizontal: 2 },
   // Assembly cards
   assemblyCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 10 },
   assemblyCardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },

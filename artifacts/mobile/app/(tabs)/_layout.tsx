@@ -16,13 +16,15 @@ export default function TabLayout() {
 
   if (!role) return <Redirect href="/login" />;
 
-  const showAdmin = role === "admin";
-  const showNew = role === "field" || role === "admin";
-  const showRequests = role === "admin" || role === "customer";
-  const showAccounting = role === "accounting" || role === "admin" || role === "customer";
-  const showReports = role === "admin" || role === "accounting";
-  const pendingRequestsCount = glassRequests.filter((r) => r.status === "pending").length;
+  const isAdmin = role === "admin";
+  const showAdmin = isAdmin;
+  const showStock = isAdmin; // stock only in admin "more" tab — hidden from tab bar for admin
+  const showRequests = isAdmin || role === "customer";
+  const showAccounting = role === "accounting" || isAdmin || role === "customer";
+  const showReports = isAdmin || role === "accounting";
+  const showMore = isAdmin; // collects secondary nav for admin
 
+  const pendingRequestsCount = glassRequests.filter((r) => r.status === "pending").length;
   const urgentCount = assemblies.filter((a) => a.status === "water_test_failed").length;
 
   return (
@@ -51,11 +53,12 @@ export default function TabLayout() {
           ),
       }}
     >
+      {/* ① Kayıtlar — always visible */}
       <Tabs.Screen
         name="index"
         options={{
           title: "Kayıtlar",
-          tabBarBadge: urgentCount > 0 && role === "admin" ? urgentCount : undefined,
+          tabBarBadge: urgentCount > 0 && isAdmin ? urgentCount : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.destructive, fontSize: 10 },
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
@@ -65,6 +68,8 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ② Panel — admin only, visible in tab bar */}
       <Tabs.Screen
         name="admin"
         options={{
@@ -78,10 +83,12 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ③ Fotoğraflar — always visible */}
       <Tabs.Screen
         name="photos"
         options={{
-          title: "Fotoğraflar",
+          title: "Fotoğraf",
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
               <SymbolView name="photo.stack" tintColor={color} size={size} />
@@ -90,11 +97,17 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ④ Stok — hidden from tab bar for admin (in More screen); hidden entirely for field/customer/accounting */}
       <Tabs.Screen
         name="stock"
         options={{
           title: "Stok",
-          href: role === "field" || role === "accounting" || role === "customer" ? null : undefined,
+          href: isAdmin
+            ? null // admin uses More screen
+            : role === "field" || role === "accounting" || role === "customer"
+            ? null
+            : undefined,
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
               <SymbolView name="shippingbox" tintColor={color} size={size} />
@@ -103,12 +116,18 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ⑤ Talepler — hidden from tab bar for admin (in More screen); visible for customer */}
       <Tabs.Screen
         name="requests"
         options={{
           title: "Talepler",
-          href: showRequests ? undefined : null,
-          tabBarBadge: showAdmin && pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+          href: isAdmin
+            ? null // admin uses More screen
+            : showRequests
+            ? undefined
+            : null,
+          tabBarBadge: !isAdmin && showRequests && pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
           tabBarBadgeStyle: { backgroundColor: "#f59e0b", fontSize: 10 },
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
@@ -118,10 +137,12 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ⑥ Faturalar — visible for accounting/admin/customer */}
       <Tabs.Screen
         name="accounting"
         options={{
-          title: role === "accounting" ? "Faturalar" : "Faturalar",
+          title: "Faturalar",
           href: showAccounting ? undefined : null,
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
@@ -131,11 +152,17 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ⑦ Raporlar — hidden from tab bar for admin (in More screen); visible for accounting */}
       <Tabs.Screen
         name="reports"
         options={{
           title: "Raporlar",
-          href: showReports ? undefined : null,
+          href: isAdmin
+            ? null // admin uses More screen
+            : showReports
+            ? undefined
+            : null,
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
               <SymbolView name="chart.bar.doc.horizontal" tintColor={color} size={size} />
@@ -144,15 +171,35 @@ export default function TabLayout() {
             ),
         }}
       />
+
+      {/* ⑧ Profil — hidden from tab bar for admin (in More screen); visible for others */}
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profil",
+          href: isAdmin ? null : undefined,
           tabBarIcon: ({ color, size }) =>
             isIOS ? (
               <SymbolView name="person.fill" tintColor={color} size={size} />
             ) : (
               <Feather name="user" size={size} color={color} />
+            ),
+        }}
+      />
+
+      {/* ⑨ Daha Fazla — admin only, contains Stok / Talepler / Raporlar / Profil */}
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "Daha Fazla",
+          href: showMore ? undefined : null,
+          tabBarBadge: showMore && pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: "#f59e0b", fontSize: 10 },
+          tabBarIcon: ({ color, size }) =>
+            isIOS ? (
+              <SymbolView name="ellipsis.circle" tintColor={color} size={size} />
+            ) : (
+              <Feather name="more-horizontal" size={size} color={color} />
             ),
         }}
       />
