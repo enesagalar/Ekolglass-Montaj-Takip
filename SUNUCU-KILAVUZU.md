@@ -47,14 +47,22 @@ pm2 logs expo-dev --lines 50
 cd /opt/ekolglass
 
 # 1. Son kodu çek
-git pull
+git pull origin main
 
-# 2. API'yi yeniden build et
+# 2. Yeni paketleri kur (HER güncellemede çalıştırın!)
+pnpm install --filter @workspace/mobile...
+
+# 3. API'yi yeniden build et
 docker compose --env-file .env.production up -d --build
 
-# 3. Expo'yu yeniden başlat
+# 4. Expo'yu yeniden başlat
 pm2 restart expo-dev
+
+# 5. Kontrol
+pm2 logs expo-dev --lines 20
 ```
+
+> **Önemli:** `pnpm install` adımını atlamayın. Yeni paket eklendiyse Expo açılmaz.
 
 ---
 
@@ -85,7 +93,9 @@ docker compose --env-file .env.production restart api
 ### Migration v2 + v3 (Sırasıyla Çalıştırın)
 
 ```bash
-cd /opt/ekolglass && git pull
+cd /opt/ekolglass
+git pull origin main
+pnpm install --filter @workspace/mobile...
 bash migrate-v2.sh   # cam alanları, su testi, kusur tablosu
 bash migrate-v3.sh   # muhasebe rolü + faturalar tablosu
 docker compose --env-file .env.production up -d --build
