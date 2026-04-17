@@ -43,6 +43,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Status flow: pending → cutting → cutting_done → installation (4 before-photos) → installation_done (4 after-photos) → water_test → completed
 - ISRI water test gate: buttons disabled for first 4 hours with countdown
 - Admin dashboard: stats, staff workload chart
+- Fotoğraflar tab: photo gallery with filter, VIN search, fullscreen viewer (loading indicator, prefetch), pull-to-refresh
+- Talepler tab: glass request form & history — Turkish full date format (day/month name/year + time)
+- Faturalar tab: invoice CRUD (accounting role), read-only for admin+customer
+- **Raporlar tab** (admin + accounting): Excel & PDF export for Montaj Raporu, Cam Talep Raporu, Fatura Raporu using `xlsx`, `expo-print`, `expo-sharing`
 - Profile screen with stats and logout
 
 #### Key Files
@@ -73,6 +77,7 @@ Schema file: `init.sql` (runs automatically on first Docker start)
 - admin / admin123 (role: admin)
 - mehmet / 1234, ali / 1234, hasan / 1234, murat / 1234 (role: field)
 - isri / isri2024 (role: customer)
+- muhasebe / muhasebe123 (role: accounting)
 
 ## Environment Variables Required
 
