@@ -24,10 +24,25 @@ function formatDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+const TR_MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+const TR_DAYS   = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+
 function displayDate(iso: string): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
+  const dt = new Date(Number(y), Number(m) - 1, Number(d));
+  return `${d} ${TR_MONTHS[Number(m) - 1]} ${y}, ${TR_DAYS[dt.getDay()]}`;
+}
+
+function displayDateTime(iso: string): string {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  const d = String(dt.getDate()).padStart(2, "0");
+  const m = TR_MONTHS[dt.getMonth()];
+  const y = dt.getFullYear();
+  const h = String(dt.getHours()).padStart(2, "0");
+  const min = String(dt.getMinutes()).padStart(2, "0");
+  return `${d} ${m} ${y}, ${h}:${min}`;
 }
 
 function tomorrow(): Date {
@@ -460,9 +475,19 @@ function RequestCard({ req, colors, isAdmin, onReview, onDelete }: {
           <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
-      <View style={styles.reqDateRow}>
-        <Feather name="calendar" size={13} color={colors.mutedForeground} />
-        <Text style={[styles.reqDate, { color: colors.mutedForeground }]}>Talep tarihi: {displayDate(req.requestedDate)}</Text>
+      <View style={{ gap: 4, marginBottom: 4 }}>
+        <View style={styles.reqDateRow}>
+          <Feather name="calendar" size={13} color={colors.primary} />
+          <Text style={[styles.reqDate, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+            Teslimat: {displayDate(req.requestedDate)}
+          </Text>
+        </View>
+        <View style={styles.reqDateRow}>
+          <Feather name="clock" size={12} color={colors.mutedForeground} />
+          <Text style={[styles.reqDate, { color: colors.mutedForeground, fontSize: 11 }]}>
+            Gönderildi: {displayDateTime(req.createdAt)}
+          </Text>
+        </View>
       </View>
       {req.items.map((item, i) => (
         <Text key={i} style={[styles.reqItem, { color: colors.foreground }]}>

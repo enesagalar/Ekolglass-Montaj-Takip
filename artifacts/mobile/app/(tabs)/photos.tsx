@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -42,6 +44,14 @@ const PHOTO_TYPE_COLORS: Record<PhotoType, string> = {
   other: "#6b7280",
 };
 
+const TR_MONTHS = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
+
+function fmtDate(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
 type FilterType = PhotoType | "all";
 
 const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
@@ -64,7 +74,50 @@ interface FlatPhoto {
   vinLast5?: string;
   vehicleModel?: string;
   capturedAt?: string;
-  addedByRole?: string;
+}
+
+function PhotoGridItem({
+  photo,
+  size,
+  onPress,
+}: {
+  photo: FlatPhoto;
+  size: number;
+  onPress: () => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const typeColor = PHOTO_TYPE_COLORS[photo.type] || "#6b7280";
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.82}
+      style={[styles.photoWrap, { width: size, height: size }]}
+    >
+      {!loaded && (
+        <View style={[StyleSheet.absoluteFill, styles.photoSkeleton]}>
+          <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+        </View>
+      )}
+      <Image
+        source={{ uri: photo.uri }}
+        style={styles.photoImg}
+        resizeMode="cover"
+        onLoad={() => setLoaded(true)}
+        fadeDuration={150}
+      />
+      <View style={[styles.typeBadge, { backgroundColor: typeColor + "dd" }]}>
+        <Text style={styles.typeBadgeText} numberOfLines={1}>
+          {photo.angle ?? PHOTO_TYPE_LABELS[photo.type]}
+        </Text>
+      </View>
+      {photo.vinLast5 && (
+        <View style={[styles.vinBadge]}>
+          <Text style={styles.vinBadgeText}>···{photo.vinLast5}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 }
 
 export default function PhotosScreen() {
@@ -79,6 +132,7 @@ export default function PhotosScreen() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [vinSearch, setVinSearch] = useState("");
   const [fullscreen, setFullscreen] = useState<FlatPhoto | null>(null);
+  const [imgLoading, setImgLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -92,9 +146,14 @@ export default function PhotosScreen() {
 
   const allPhotos = useMemo((): FlatPhoto[] => {
     const result: FlatPhoto[] = [];
-    const visibleAssemblies = role === "field"
-      ? assemblies.filter((a) => a.assignedToUserId === currentUser?.id || a.assignedTo === currentUser?.name)
-      : assemblies;
+    const visibleAssemblies =
+      role === "field"
+        ? assemblies.filter(
+            (a) =>
+              a.assignedToUserId === currentUser?.id ||
+              a.assignedTo === currentUser?.name
+          )
+        : assemblies;
 
     visibleAssemblies.forEach((a) => {
       a.photos.forEach((p) => {
@@ -146,41 +205,90 @@ export default function PhotosScreen() {
             vinLast5: a.vinLast5,
             vehicleModel: a.vehicleModel,
             capturedAt: d.timestamp,
-            addedByRole: d.addedByRole,
           });
         }
       });
     });
 
-    return result.sort((a, b) => (b.capturedAt ?? "").localeCompare(a.capturedAt ?? ""));
+    return result.sort((a, b) =>
+      (b.capturedAt ?? "").localeCompare(a.capturedAt ?? "")
+    );
   }, [assemblies, role, currentUser]);
 
   const filtered = useMemo(() => {
-    let list = filter === "all" ? allPhotos : allPhotos.filter((p) => p.type === filter);
+    let list =
+      filter === "all" ? allPhotos : allPhotos.filter((p) => p.type === filter);
     const q = vinSearch.trim().toUpperCase();
     if (q) {
-      list = list.filter((p) =>
-        (p.vin ?? "").toUpperCase().includes(q) ||
-        (p.vinLast5 ?? "").toUpperCase().includes(q)
+      list = list.filter(
+        (p) =>
+          (p.vin ?? "").toUpperCase().includes(q) ||
+          (p.vinLast5 ?? "").toUpperCase().includes(q)
       );
     }
     return list;
   }, [allPhotos, filter, vinSearch]);
 
+  // Prefetch first 12 images for faster opens
+  useEffect(() => {
+    const toFetch = filtered.slice(0, 12);
+    toFetch.forEach((p) => {
+      if (p.uri) Image.prefetch(p.uri).catch(() => {});
+    });
+  }, [filtered]);
+
+  const openPhoto = useCallback((photo: FlatPhoto) => {
+    setImgLoading(true);
+    setFullscreen(photo);
+  }, []);
+
+  const closePhoto = useCallback(() => {
+    setFullscreen(null);
+    setImgLoading(false);
+  }, []);
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Fotoğraflar</Text>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: topPad + 12,
+            backgroundColor: colors.card,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+          Fotoğraflar
+        </Text>
         <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
           {filtered.length} fotoğraf
         </Text>
       </View>
 
       {/* Şase arama */}
-      <View style={[styles.searchWrap, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: vinSearch ? colors.primary : colors.border }]}>
-          <Feather name="search" size={15} color={vinSearch ? colors.primary : colors.mutedForeground} />
+      <View
+        style={[
+          styles.searchWrap,
+          { backgroundColor: colors.card, borderBottomColor: colors.border },
+        ]}
+      >
+        <View
+          style={[
+            styles.searchBox,
+            {
+              backgroundColor: colors.muted,
+              borderColor: vinSearch ? colors.primary : colors.border,
+            },
+          ]}
+        >
+          <Feather
+            name="search"
+            size={15}
+            color={vinSearch ? colors.primary : colors.mutedForeground}
+          />
           <TextInput
             value={vinSearch}
             onChangeText={setVinSearch}
@@ -200,20 +308,39 @@ export default function PhotosScreen() {
 
       {/* Filter chips */}
       <View style={[styles.filterWrap, { borderBottomColor: colors.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {FILTER_OPTIONS.filter((o) => o.value === "all" || allPhotos.some((p) => p.type === o.value)).map((opt) => {
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {FILTER_OPTIONS.filter(
+            (o) =>
+              o.value === "all" ||
+              allPhotos.some((p) => p.type === o.value)
+          ).map((opt) => {
             const active = filter === opt.value;
-            const typeColor = opt.value !== "all" ? PHOTO_TYPE_COLORS[opt.value as PhotoType] : colors.foreground;
+            const typeColor =
+              opt.value !== "all"
+                ? PHOTO_TYPE_COLORS[opt.value as PhotoType]
+                : colors.primary;
             return (
               <Pressable
                 key={opt.value}
                 onPress={() => setFilter(opt.value)}
-                style={[styles.chip, {
-                  backgroundColor: active ? typeColor : colors.muted,
-                  borderColor: active ? typeColor : colors.border,
-                }]}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? typeColor : colors.muted,
+                    borderColor: active ? typeColor : colors.border,
+                  },
+                ]}
               >
-                <Text style={[styles.chipText, { color: active ? "#fff" : colors.mutedForeground }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: active ? "#fff" : colors.mutedForeground },
+                  ]}
+                >
                   {opt.label}
                 </Text>
               </Pressable>
@@ -226,89 +353,140 @@ export default function PhotosScreen() {
         <ScrollView
           contentContainerStyle={styles.empty}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
           }
         >
           <Feather name="camera-off" size={40} color={colors.mutedForeground} />
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Fotoğraf yok</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            Fotoğraf yok
+          </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            {vinSearch ? `"${vinSearch}" şaseli araç fotoğrafı bulunamadı` : filter === "all" ? "Henüz fotoğraf çekilmemiş" : "Bu türde fotoğraf bulunamadı"}
+            {vinSearch
+              ? `"${vinSearch}" şaseli araç fotoğrafı bulunamadı`
+              : filter === "all"
+              ? "Henüz fotoğraf çekilmemiş"
+              : "Bu türde fotoğraf bulunamadı"}
           </Text>
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={[styles.grid, { paddingBottom: bottomPad, paddingTop: 8 }]}
+          contentContainerStyle={[
+            styles.grid,
+            { paddingBottom: bottomPad, paddingTop: 8 },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
           }
         >
           <View style={styles.gridRow}>
-            {filtered.map((photo) => {
-              const typeColor = PHOTO_TYPE_COLORS[photo.type] || colors.mutedForeground;
-              return (
-                <Pressable
-                  key={photo.id}
-                  onPress={() => setFullscreen(photo)}
-                  style={({ pressed }) => [
-                    styles.photoWrap,
-                    { width: photoSize, height: photoSize, opacity: pressed ? 0.85 : 1 },
-                  ]}
-                >
-                  <Image source={{ uri: photo.uri }} style={styles.photoImg} resizeMode="cover" />
-                  <View style={[styles.typeBadge, { backgroundColor: typeColor + "dd" }]}>
-                    <Text style={styles.typeBadgeText} numberOfLines={1}>
-                      {photo.angle ?? PHOTO_TYPE_LABELS[photo.type]}
-                    </Text>
-                  </View>
-                  {photo.vinLast5 && (
-                    <View style={[styles.vinBadge, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
-                      <Text style={styles.vinBadgeText}>···{photo.vinLast5}</Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
+            {filtered.map((photo) => (
+              <PhotoGridItem
+                key={photo.id}
+                photo={photo}
+                size={photoSize}
+                onPress={() => openPhoto(photo)}
+              />
+            ))}
           </View>
         </ScrollView>
       )}
 
-      {/* Fullscreen modal */}
-      <Modal visible={!!fullscreen} transparent animationType="fade" onRequestClose={() => setFullscreen(null)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setFullscreen(null)} />
-
+      {/* Fullscreen Viewer */}
+      <Modal
+        visible={!!fullscreen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closePhoto}
+      >
+        <View style={styles.fsOverlay}>
           {fullscreen && (
             <>
-              <View style={[styles.modalHeader, { paddingTop: topPad + 8 }]}>
-                <View style={[styles.modalTypeBadge, { backgroundColor: PHOTO_TYPE_COLORS[fullscreen.type] }]}>
-                  <Text style={styles.modalTypeBadgeText}>
+              {/* Top bar */}
+              <View style={[styles.fsTopBar, { paddingTop: topPad + 8 }]}>
+                <View
+                  style={[
+                    styles.fsTypePill,
+                    { backgroundColor: PHOTO_TYPE_COLORS[fullscreen.type] },
+                  ]}
+                >
+                  <Text style={styles.fsTypePillText}>
                     {fullscreen.angle
                       ? `${PHOTO_TYPE_LABELS[fullscreen.type]} · ${fullscreen.angle}`
                       : PHOTO_TYPE_LABELS[fullscreen.type]}
                   </Text>
                 </View>
-                <Pressable onPress={() => setFullscreen(null)} style={styles.modalClose}>
+                <TouchableOpacity
+                  onPress={closePhoto}
+                  style={styles.fsCloseBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
                   <Feather name="x" size={22} color="#fff" />
-                </Pressable>
+                </TouchableOpacity>
               </View>
 
-              <Image
-                source={{ uri: fullscreen.uri }}
-                style={styles.modalImage}
-                resizeMode="contain"
-              />
+              {/* Image area */}
+              <View style={styles.fsImageArea} pointerEvents="box-none">
+                {imgLoading && (
+                  <ActivityIndicator
+                    size="large"
+                    color="#fff"
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+                <Image
+                  source={{ uri: fullscreen.uri }}
+                  style={styles.fsImage}
+                  resizeMode="contain"
+                  onLoadStart={() => setImgLoading(true)}
+                  onLoadEnd={() => setImgLoading(false)}
+                  fadeDuration={200}
+                />
+              </View>
 
-              {fullscreen.vinLast5 && (
-                <View style={styles.modalFooter}>
-                  <Feather name="hash" size={14} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.modalFooterText}>
-                    {fullscreen.vin && fullscreen.vin !== `XXXXX${fullscreen.vinLast5}`
-                      ? fullscreen.vin
-                      : `···${fullscreen.vinLast5}`}
-                  </Text>
-                </View>
-              )}
+              {/* Bottom info */}
+              <View
+                style={[
+                  styles.fsBottomBar,
+                  { paddingBottom: insets.bottom + 20 },
+                ]}
+              >
+                {(fullscreen.vin || fullscreen.vinLast5) && (
+                  <View style={styles.fsInfoRow}>
+                    <Feather name="hash" size={13} color="rgba(255,255,255,0.6)" />
+                    <Text style={styles.fsInfoText}>
+                      {fullscreen.vin &&
+                      fullscreen.vin !== `XXXXX${fullscreen.vinLast5}`
+                        ? fullscreen.vin
+                        : `···${fullscreen.vinLast5}`}
+                    </Text>
+                  </View>
+                )}
+                {fullscreen.capturedAt && (
+                  <View style={styles.fsInfoRow}>
+                    <Feather
+                      name="clock"
+                      size={13}
+                      color="rgba(255,255,255,0.6)"
+                    />
+                    <Text style={styles.fsInfoText}>
+                      {fmtDate(fullscreen.capturedAt)}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.fsDismissHint}>
+                  Kapatmak için × tuşuna basın
+                </Text>
+              </View>
             </>
           )}
         </View>
@@ -319,33 +497,164 @@ export default function PhotosScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
   headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  searchWrap: { paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1 },
-  searchBox: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", height: 22 },
+  headerSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+  searchWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    height: 22,
+  },
   filterWrap: { borderBottomWidth: 1 },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: "row", alignItems: "center" },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  filterRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
   chipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   grid: { paddingHorizontal: 16 },
   gridRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+
   photoWrap: { borderRadius: 10, overflow: "hidden", position: "relative" },
+  photoSkeleton: {
+    backgroundColor: "#1e293b",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+  },
   photoImg: { width: "100%", height: "100%" },
-  typeBadge: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 6, paddingVertical: 3 },
-  typeBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#fff" },
-  vinBadge: { position: "absolute", top: 4, right: 4, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 5 },
+  typeBadge: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  typeBadgeText: {
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  vinBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
   vinBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff" },
-  empty: { flexGrow: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
+
+  empty: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: 32,
+  },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center" },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12 },
-  modalTypeBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  modalTypeBadgeText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
-  modalClose: { padding: 8 },
-  modalImage: { width: "100%", height: "70%" },
-  modalFooter: { flexDirection: "row", alignItems: "center", gap: 8, padding: 16, justifyContent: "center" },
-  modalFooterText: { fontSize: 14, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.7)" },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
+
+  // Fullscreen viewer
+  fsOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.96)",
+    flexDirection: "column",
+  },
+  fsTopBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    zIndex: 10,
+  },
+  fsTypePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    maxWidth: "75%",
+  },
+  fsTypePillText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  fsCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fsImageArea: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fsImage: {
+    width: "100%",
+    height: "100%",
+  },
+  fsBottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  fsInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  fsInfoText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.75)",
+  },
+  fsDismissHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.3)",
+    textAlign: "center",
+    marginTop: 6,
+  },
 });

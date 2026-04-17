@@ -20,6 +20,7 @@ export default function TabLayout() {
   const showNew = role === "field" || role === "admin";
   const showRequests = role === "admin" || role === "customer";
   const showAccounting = role === "accounting" || role === "admin" || role === "customer";
+  const showReports = role === "admin" || role === "accounting";
   const pendingRequestsCount = glassRequests.filter((r) => r.status === "pending").length;
 
   const urgentCount = assemblies.filter((a) => a.status === "water_test_failed").length;
@@ -127,6 +128,19 @@ export default function TabLayout() {
               <SymbolView name="doc.text.fill" tintColor={color} size={size} />
             ) : (
               <Feather name="file-text" size={size} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: "Raporlar",
+          href: showReports ? undefined : null,
+          tabBarIcon: ({ color, size }) =>
+            isIOS ? (
+              <SymbolView name="chart.bar.doc.horizontal" tintColor={color} size={size} />
+            ) : (
+              <Feather name="bar-chart" size={size} color={color} />
             ),
         }}
       />
