@@ -449,6 +449,7 @@ export default function PhotosScreen() {
                   resizeMode="contain"
                   onLoadStart={() => setImgLoading(true)}
                   onLoadEnd={() => setImgLoading(false)}
+                  onError={() => setImgLoading(false)}
                   fadeDuration={200}
                 />
               </View>

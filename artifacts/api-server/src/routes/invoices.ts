@@ -28,8 +28,8 @@ router.get("/invoices", requireRole("accounting", "admin", "customer"), async (r
   }
 });
 
-// POST /invoices — sadece accounting
-router.post("/invoices", requireRole("accounting"), async (req, res) => {
+// POST /invoices — accounting veya admin
+router.post("/invoices", requireRole("accounting", "admin"), async (req, res) => {
   try {
     const user = (req as any).user as JwtPayload;
     const { assemblyId, invoiceNumber, notes } = req.body;
@@ -60,8 +60,8 @@ router.post("/invoices", requireRole("accounting"), async (req, res) => {
   }
 });
 
-// PATCH /invoices/:id — sadece accounting
-router.patch("/invoices/:id", requireRole("accounting"), async (req, res) => {
+// PATCH /invoices/:id — accounting veya admin
+router.patch("/invoices/:id", requireRole("accounting", "admin"), async (req, res) => {
   try {
     const { id } = req.params;
     const { invoiceNumber, notes } = req.body;

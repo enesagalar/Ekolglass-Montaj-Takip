@@ -158,8 +158,8 @@ export default function AccountingScreen() {
     ]);
   };
 
-  // Accounting role: list of assemblies (can add/edit invoice)
-  if (role === "accounting") {
+  // Accounting + Admin: list of assemblies (can add/edit invoice)
+  if (role === "accounting" || role === "admin") {
     const sortedAssemblies = [...assemblies].sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
@@ -167,7 +167,7 @@ export default function AccountingScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.foreground }]}>Muhasebe</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Faturalar</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {assemblies.length} montaj · {invoices.length} fatura girilmiş
           </Text>
@@ -288,7 +288,7 @@ export default function AccountingScreen() {
     );
   }
 
-  // Admin / Customer: read-only invoice list
+  // Customer: read-only invoice list
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>

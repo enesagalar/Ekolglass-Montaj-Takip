@@ -288,32 +288,65 @@ export default function NewAssemblyScreen() {
             </Text>
 
             {approvalDocUri ? (
-              <Pressable onPress={() => handlePhotoPress(setApprovalDocUri)} style={styles.photoPreviewWrap}>
-                <Image source={{ uri: approvalDocUri }} style={styles.photoPreview} resizeMode="cover" />
-                <View style={[styles.photoPreviewOverlay, { backgroundColor: "rgba(0,0,0,0.45)" }]}>
-                  <Feather name="refresh-cw" size={20} color="#fff" />
-                  <Text style={styles.photoPreviewOverlayText}>Değiştir</Text>
+              <>
+                <View style={styles.photoPreviewWrap}>
+                  <Image source={{ uri: approvalDocUri }} style={styles.photoPreview} resizeMode="cover" />
+                  <View style={[styles.photoPreviewBadge, { backgroundColor: colors.success }]}>
+                    <Feather name="check" size={12} color="#fff" />
+                    <Text style={styles.photoPreviewBadgeText}>Fotoğraf Alındı</Text>
+                  </View>
                 </View>
-                <View style={[styles.photoPreviewBadge, { backgroundColor: colors.success }]}>
-                  <Feather name="check" size={12} color="#fff" />
-                  <Text style={styles.photoPreviewBadgeText}>Yüklendi</Text>
+                <View style={styles.photoReplaceRow}>
+                  {Platform.OS !== "web" && (
+                    <Pressable
+                      onPress={async () => { const u = await takePhoto("camera"); if (u) setApprovalDocUri(u); }}
+                      style={[styles.photoReplaceBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                    >
+                      <Feather name="camera" size={15} color={colors.foreground} />
+                      <Text style={[styles.photoReplaceBtnText, { color: colors.foreground }]}>Yeniden Çek</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={async () => { const u = await takePhoto("gallery"); if (u) setApprovalDocUri(u); }}
+                    style={[styles.photoReplaceBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  >
+                    <Feather name="refresh-cw" size={15} color={colors.foreground} />
+                    <Text style={[styles.photoReplaceBtnText, { color: colors.foreground }]}>Galeriden Değiştir</Text>
+                  </Pressable>
                 </View>
-              </Pressable>
+              </>
             ) : (
-              <Pressable
-                onPress={() => handlePhotoPress(setApprovalDocUri)}
-                style={[styles.photoEmpty, { backgroundColor: colors.muted, borderColor: colors.primary + "60" }]}
-              >
-                <View style={[styles.photoEmptyIcon, { backgroundColor: colors.primary + "15" }]}>
-                  <Feather name="file-text" size={32} color={colors.primary} />
+              <>
+                <View style={[styles.photoEmptyLarge, { backgroundColor: colors.muted, borderColor: colors.primary + "50" }]}>
+                  <View style={[styles.photoEmptyIcon, { backgroundColor: colors.primary + "15" }]}>
+                    <Feather name="file-text" size={36} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.photoEmptyTitle, { color: colors.foreground }]}>
+                    Onay Belgesi Eklenmedi
+                  </Text>
+                  <Text style={[styles.photoEmptyHint, { color: colors.mutedForeground }]}>
+                    Araç onay belgesini net ve okunabilir şekilde fotoğraflayın
+                  </Text>
                 </View>
-                <Text style={[styles.photoEmptyTitle, { color: colors.foreground }]}>
-                  Onay Belgesi Fotoğrafı Ekle
-                </Text>
-                <Text style={[styles.photoEmptyHint, { color: colors.mutedForeground }]}>
-                  Kamera veya galeriden fotoğraf seçin
-                </Text>
-              </Pressable>
+                <View style={styles.photoCaptureRow}>
+                  {Platform.OS !== "web" && (
+                    <Pressable
+                      onPress={async () => { const u = await takePhoto("camera"); if (u) setApprovalDocUri(u); }}
+                      style={[styles.photoCaptureBtn, { backgroundColor: colors.primary }]}
+                    >
+                      <Feather name="camera" size={18} color="#fff" />
+                      <Text style={styles.photoCaptureBtnText}>Kamera ile Çek</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={async () => { const u = await takePhoto("gallery"); if (u) setApprovalDocUri(u); }}
+                    style={[styles.photoCaptureBtn, { backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border }]}
+                  >
+                    <Feather name="image" size={18} color={colors.foreground} />
+                    <Text style={[styles.photoCaptureBtnText, { color: colors.foreground }]}>Galeriden Seç</Text>
+                  </Pressable>
+                </View>
+              </>
             )}
           </View>
         )}
@@ -353,30 +386,63 @@ export default function NewAssemblyScreen() {
             <Text style={[styles.fieldSub, { color: colors.mutedForeground }]}>Zorunlu — şase plakasının okunabilir fotoğrafı</Text>
 
             {vinPhotoUri ? (
-              <Pressable onPress={() => handlePhotoPress(setVinPhotoUri)} style={styles.photoPreviewWrap}>
-                <Image source={{ uri: vinPhotoUri }} style={styles.photoPreview} resizeMode="cover" />
-                <View style={[styles.photoPreviewOverlay, { backgroundColor: "rgba(0,0,0,0.45)" }]}>
-                  <Feather name="refresh-cw" size={20} color="#fff" />
-                  <Text style={styles.photoPreviewOverlayText}>Değiştir</Text>
+              <>
+                <View style={styles.photoPreviewWrap}>
+                  <Image source={{ uri: vinPhotoUri }} style={styles.photoPreview} resizeMode="cover" />
+                  <View style={[styles.photoPreviewBadge, { backgroundColor: colors.success }]}>
+                    <Feather name="check" size={12} color="#fff" />
+                    <Text style={styles.photoPreviewBadgeText}>Fotoğraf Alındı</Text>
+                  </View>
                 </View>
-                <View style={[styles.photoPreviewBadge, { backgroundColor: colors.success }]}>
-                  <Feather name="check" size={12} color="#fff" />
-                  <Text style={styles.photoPreviewBadgeText}>Yüklendi</Text>
+                <View style={styles.photoReplaceRow}>
+                  {Platform.OS !== "web" && (
+                    <Pressable
+                      onPress={async () => { const u = await takePhoto("camera"); if (u) setVinPhotoUri(u); }}
+                      style={[styles.photoReplaceBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                    >
+                      <Feather name="camera" size={15} color={colors.foreground} />
+                      <Text style={[styles.photoReplaceBtnText, { color: colors.foreground }]}>Yeniden Çek</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={async () => { const u = await takePhoto("gallery"); if (u) setVinPhotoUri(u); }}
+                    style={[styles.photoReplaceBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  >
+                    <Feather name="refresh-cw" size={15} color={colors.foreground} />
+                    <Text style={[styles.photoReplaceBtnText, { color: colors.foreground }]}>Galeriden Değiştir</Text>
+                  </Pressable>
                 </View>
-              </Pressable>
+              </>
             ) : (
-              <Pressable
-                onPress={() => handlePhotoPress(setVinPhotoUri)}
-                style={[styles.photoEmpty, { backgroundColor: colors.muted, borderColor: colors.border }]}
-              >
-                <View style={[styles.photoEmptyIcon, { backgroundColor: colors.primary + "15" }]}>
-                  <Feather name="camera" size={32} color={colors.primary} />
+              <>
+                <View style={[styles.photoEmptyLarge, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                  <View style={[styles.photoEmptyIcon, { backgroundColor: colors.primary + "15" }]}>
+                    <Feather name="shield" size={36} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.photoEmptyTitle, { color: colors.foreground }]}>Şase Fotoğrafı Eklenmedi</Text>
+                  <Text style={[styles.photoEmptyHint, { color: colors.mutedForeground }]}>
+                    Şase plakasını net ve okunabilir şekilde fotoğraflayın
+                  </Text>
                 </View>
-                <Text style={[styles.photoEmptyTitle, { color: colors.foreground }]}>Şase Fotoğrafı Ekle</Text>
-                <Text style={[styles.photoEmptyHint, { color: colors.mutedForeground }]}>
-                  Plakayı net görecek şekilde fotoğraf çekin
-                </Text>
-              </Pressable>
+                <View style={styles.photoCaptureRow}>
+                  {Platform.OS !== "web" && (
+                    <Pressable
+                      onPress={async () => { const u = await takePhoto("camera"); if (u) setVinPhotoUri(u); }}
+                      style={[styles.photoCaptureBtn, { backgroundColor: colors.primary }]}
+                    >
+                      <Feather name="camera" size={18} color="#fff" />
+                      <Text style={styles.photoCaptureBtnText}>Kamera ile Çek</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={async () => { const u = await takePhoto("gallery"); if (u) setVinPhotoUri(u); }}
+                    style={[styles.photoCaptureBtn, { backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border }]}
+                  >
+                    <Feather name="image" size={18} color={colors.foreground} />
+                    <Text style={[styles.photoCaptureBtnText, { color: colors.foreground }]}>Galeriden Seç</Text>
+                  </Pressable>
+                </View>
+              </>
             )}
           </View>
         )}
@@ -568,25 +634,35 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1, alignSelf: "flex-start",
   },
   mandatoryText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  photoPreviewWrap: { width: "100%", height: 200, borderRadius: 16, overflow: "hidden", position: "relative" },
+  photoPreviewWrap: { width: "100%", height: 220, borderRadius: 16, overflow: "hidden", position: "relative" },
   photoPreview: { width: "100%", height: "100%" },
-  photoPreviewOverlay: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, paddingVertical: 10,
-  },
-  photoPreviewOverlayText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   photoPreviewBadge: {
     position: "absolute", top: 10, right: 10,
     flexDirection: "row", alignItems: "center", gap: 5,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
   },
   photoPreviewBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  photoReplaceRow: { flexDirection: "row", gap: 10 },
+  photoReplaceBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 7, height: 42, borderRadius: 12, borderWidth: 1,
+  },
+  photoReplaceBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  photoEmptyLarge: {
+    borderRadius: 16, borderWidth: 2, borderStyle: "dashed",
+    alignItems: "center", justifyContent: "center", gap: 12, padding: 28, minHeight: 180,
+  },
   photoEmpty: {
     height: 180, borderRadius: 16, borderWidth: 2, borderStyle: "dashed",
     alignItems: "center", justifyContent: "center", gap: 10, padding: 20,
   },
-  photoEmptyIcon: { width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  photoCaptureRow: { flexDirection: "row", gap: 10 },
+  photoCaptureBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, height: 50, borderRadius: 14,
+  },
+  photoCaptureBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  photoEmptyIcon: { width: 68, height: 68, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   photoEmptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   photoEmptyHint: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
   vinInputWrap: {

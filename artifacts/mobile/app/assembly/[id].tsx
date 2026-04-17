@@ -866,20 +866,39 @@ export default function AssemblyDetailScreen() {
               <Text style={[styles.emptyPhotosText, { color: colors.mutedForeground }]}>Henüz fotoğraf eklenmemiş</Text>
             </View>
           ) : (
-            <View style={styles.photoGrid}>
-              {assembly.photos.map((photo) => (
-                <Pressable key={photo.id} style={styles.photoThumb} onPress={() => setSelectedPhoto(photo)}>
-                  <ExpoImage source={{ uri: photo.uri }} style={styles.photoImg} contentFit="cover" cachePolicy="disk" />
-                  <View style={[styles.photoTypePill, { backgroundColor: PHOTO_TYPE_COLORS[photo.type] ?? "#6366f1" }]}>
-                    <Text style={styles.photoTypePillText}>
-                      {photo.angle
-                        ? `${(PHOTO_TYPE_LABELS[photo.type] ?? photo.type).split(" ")[1] ?? PHOTO_TYPE_LABELS[photo.type]} · ${photo.angle}`
-                        : PHOTO_TYPE_LABELS[photo.type] ?? photo.type}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+            (() => {
+              const groups: { type: PhotoType; label: string; color: string; photos: typeof assembly.photos }[] = [];
+              const typeOrder: PhotoType[] = ["installation_before", "installation_after", "water_test", "defect", "other"];
+              typeOrder.forEach((t) => {
+                const grp = assembly.photos.filter((p) => p.type === t);
+                if (grp.length > 0) groups.push({ type: t, label: PHOTO_TYPE_LABELS[t] ?? t, color: PHOTO_TYPE_COLORS[t] ?? "#6366f1", photos: grp });
+              });
+              return (
+                <View style={{ gap: 14 }}>
+                  {groups.map((grp) => (
+                    <View key={grp.type} style={{ gap: 8 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: grp.color }} />
+                        <Text style={[styles.photoGroupLabel, { color: grp.color }]}>{grp.label}</Text>
+                        <Text style={[styles.photoGroupCount, { color: colors.mutedForeground }]}>({grp.photos.length})</Text>
+                      </View>
+                      <View style={styles.photoGrid}>
+                        {grp.photos.map((photo) => (
+                          <Pressable key={photo.id} style={styles.photoThumb} onPress={() => setSelectedPhoto(photo)}>
+                            <ExpoImage source={{ uri: photo.uri }} style={styles.photoImg} contentFit="cover" cachePolicy="disk" />
+                            <View style={[styles.photoTypePill, { backgroundColor: grp.color }]}>
+                              <Text style={styles.photoTypePillText}>
+                                {photo.angle ? photo.angle : grp.label}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()
           )}
         </View>
 
@@ -1233,6 +1252,8 @@ const styles = StyleSheet.create({
   photoBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   emptyPhotos: { alignItems: "center", paddingVertical: 20, gap: 8 },
   emptyPhotosText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  photoGroupLabel: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  photoGroupCount: { fontSize: 11, fontFamily: "Inter_400Regular" },
   photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   photoThumb: { width: 96, height: 96, borderRadius: 10, overflow: "hidden" },
   photoImg: { width: "100%", height: "100%" },
