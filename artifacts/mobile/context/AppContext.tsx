@@ -33,7 +33,7 @@ export interface AppUser {
   username: string;
   password?: string;
   name: string;
-  role: "field" | "admin" | "customer";
+  role: "field" | "admin" | "customer" | "accounting";
   active: boolean;
   createdAt: string;
 }

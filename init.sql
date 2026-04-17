@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS app_users (
     username      VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name          VARCHAR(255) NOT NULL,
-    role          VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'field', 'customer')),
+    role          VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'field', 'customer', 'accounting')),
     active        BOOLEAN NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -146,10 +146,11 @@ ON CONFLICT (id) DO NOTHING;
 -- mehmet, ali, hasan, murat / 1234
 -- isri / isri2024
 INSERT INTO app_users (username, password_hash, name, role) VALUES
-    ('admin',  '$2b$12$TrW0kAHYFUvlmd1go6HrLuOCpaIQpWKsKFI6oGbYM602IpSTt0HuO', 'Sistem Admin',  'admin'),
-    ('isri',   '$2b$12$tEu1SAFSs85LcF4swRAIKOL7RMls5ZhfYH14TSLl4s7azpCtb49QW', 'ISRI Müşteri',  'customer'),
-    ('mehmet', '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Mehmet',        'field'),
-    ('ali',    '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Ali',           'field'),
-    ('hasan',  '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Hasan',         'field'),
-    ('murat',  '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Murat',         'field')
+    ('admin',     '$2b$12$TrW0kAHYFUvlmd1go6HrLuOCpaIQpWKsKFI6oGbYM602IpSTt0HuO', 'Sistem Admin',  'admin'),
+    ('isri',      '$2b$12$tEu1SAFSs85LcF4swRAIKOL7RMls5ZhfYH14TSLl4s7azpCtb49QW', 'ISRI Müşteri',  'customer'),
+    ('mehmet',    '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Mehmet',        'field'),
+    ('ali',       '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Ali',           'field'),
+    ('hasan',     '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Hasan',         'field'),
+    ('murat',     '$2b$12$.8YmY/EbkffwfFVUZMBSoOJdEg8az9NPv74Zb.y6QaxjAm4TIjgee', 'Murat',         'field'),
+    ('muhasebe',  '$2b$12$zlYsEJmWA5HSGYbbHnohcODZ3IkBs9w4AgzoS2hS1R90I/pK1JXVm', 'Muhasebe',      'accounting')
 ON CONFLICT (username) DO NOTHING;

@@ -18,11 +18,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppUser, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
-type NewUserForm = { username: string; password: string; name: string; role: "field" | "admin" | "customer" };
+type NewUserForm = { username: string; password: string; name: string; role: "field" | "admin" | "customer" | "accounting" };
 
-const ROLE_LABELS: Record<string, string> = { admin: "Yönetici", field: "Saha Personeli", customer: "ISRI Yetkilisi" };
-const ROLE_COLORS: Record<string, string> = { admin: "#8b5cf6", field: "#0a84ff", customer: "#10b981" };
-const ROLE_ICONS: Record<string, any> = { admin: "shield", field: "tool", customer: "eye" };
+const ROLE_LABELS: Record<string, string> = { admin: "Yönetici", field: "Saha Personeli", customer: "ISRI Yetkilisi", accounting: "Muhasebe" };
+const ROLE_COLORS: Record<string, string> = { admin: "#8b5cf6", field: "#0a84ff", customer: "#10b981", accounting: "#f59e0b" };
+const ROLE_ICONS: Record<string, any> = { admin: "shield", field: "tool", customer: "eye", accounting: "file-text" };
 
 export default function ManageUsersScreen() {
   const colors = useColors();
@@ -129,6 +129,7 @@ export default function ManageUsersScreen() {
     admin: users.filter((u) => u.role === "admin"),
     field: users.filter((u) => u.role === "field"),
     customer: users.filter((u) => u.role === "customer"),
+    accounting: users.filter((u) => u.role === "accounting"),
   };
 
   return (
@@ -205,7 +206,7 @@ export default function ManageUsersScreen() {
             <View style={styles.fieldGroup}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Rol</Text>
               <View style={styles.roleRow}>
-                {(["field", "admin", "customer"] as const).map((r) => (
+                {(["field", "admin", "customer", "accounting"] as const).map((r) => (
                   <Pressable
                     key={r}
                     onPress={() => setForm((f) => ({ ...f, role: r }))}
@@ -249,7 +250,7 @@ export default function ManageUsersScreen() {
         )}
 
         {/* User lists by role */}
-        {(["admin", "field", "customer"] as const).map((roleKey) => {
+        {(["admin", "field", "customer", "accounting"] as const).map((roleKey) => {
           const roleUsers = groupedUsers[roleKey];
           if (roleUsers.length === 0) return null;
           const color = ROLE_COLORS[roleKey];
