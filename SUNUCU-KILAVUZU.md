@@ -120,7 +120,7 @@ docker compose --env-file .env.production up -d
 sleep 5
 
 # API sağlık kontrolü
-curl http://localhost:3000/api/health
+curl http://localhost:3000/api/healthz
 
 # Expo başlat
 pm2 start expo-dev
@@ -217,7 +217,7 @@ docker exec -it ekolglass-db psql -U ekolglass -d ekolglass
 docker exec ekolglass-db psql -U ekolglass -d ekolglass -c "\dt"
 
 # API sağlık kontrolü
-curl http://localhost:3000/api/health
+curl http://localhost:3000/api/healthz
 
 # Expo URL
 echo "exp://46.225.233.65:8081"

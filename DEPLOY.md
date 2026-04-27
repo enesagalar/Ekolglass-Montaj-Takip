@@ -76,7 +76,7 @@ nano /opt/ekolglass/nginx/nginx.conf
 
 ```bash
 cd /opt/ekolglass
-docker compose up -d --build
+docker compose --env-file .env.production up -d --build
 
 # Durum kontrol
 docker compose ps

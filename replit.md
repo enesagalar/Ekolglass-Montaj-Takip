@@ -12,7 +12,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
 - **Database**: PostgreSQL 16 (Replit built-in for dev, Docker on VPS for production)
-- **Auth**: Custom JWT (bcryptjs + jsonwebtoken) — Supabase removed
+- **Auth**: Custom JWT (bcryptjs + jsonwebtoken)
 - **Photo storage**: Cloudflare R2 (S3-compatible)
 - **Build**: esbuild (ESM bundle)
 

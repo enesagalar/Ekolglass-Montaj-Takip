@@ -84,14 +84,11 @@ function parseDateInput(str: string): Date | null {
 
 async function saveAndShareXlsx(wb: XLSX.WorkBook, fileName: string) {
   const b64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-  const cacheDir = FileSystem.cacheDirectory;
-  if (!cacheDir) throw new Error("Dosya sistemi kullanılamıyor.");
-  const path = `${cacheDir}${fileName}`;
-  await FileSystem.writeAsStringAsync(path, b64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const file = new FileSystem.File(FileSystem.Paths.cache, fileName);
+  if (file.exists) file.delete();
+  file.write(b64, { encoding: "base64" });
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(path, {
+    await Sharing.shareAsync(file.uri, {
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       dialogTitle: fileName,
       UTI: "com.microsoft.excel.xlsx",
@@ -107,12 +104,12 @@ async function saveAndSharePdf(html: string, fileName: string) {
     return;
   }
   const { uri } = await Print.printToFileAsync({ html, base64: false });
-  const cacheDir = FileSystem.cacheDirectory;
-  if (!cacheDir) throw new Error("Dosya sistemi kullanılamıyor.");
-  const dest = `${cacheDir}${fileName}`;
-  await FileSystem.copyAsync({ from: uri, to: dest });
+  const source = new FileSystem.File(uri);
+  const dest = new FileSystem.File(FileSystem.Paths.cache, fileName);
+  if (dest.exists) dest.delete();
+  source.copy(dest);
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(dest, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+    await Sharing.shareAsync(dest.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
   } else {
     Alert.alert("Uyarı", "Bu cihazda dosya paylaşımı desteklenmiyor.");
   }

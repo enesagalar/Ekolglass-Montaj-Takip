@@ -37,7 +37,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://46.225.233.65:3000/api",
+        "EXPO_PUBLIC_API_URL": "https://api.YOUR_DOMAIN.com/api",
         "EXPO_PUBLIC_ENV": "production"
       }
     }
